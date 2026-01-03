@@ -1,2 +1,0 @@
-# rpgmakermv-gulangr
-rpgmakermv
