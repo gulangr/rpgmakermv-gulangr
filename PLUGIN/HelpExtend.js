@@ -201,7 +201,7 @@ RJO.HE.getSkillBaseDescParams = function(item){
                     scale: typeConfig.scale * RJO.HE.VariableIconScale
                 };
                 
-                var text = "元素充能 + ";
+                var text = "元素充能 +";
                 item.descParams.push([text, RJO.HE.ItemDescOtherSize, RJO.HE.SkillDescVarGainColor, false, 0, iconData]);
             }
         }
@@ -220,7 +220,7 @@ RJO.HE.getSkillBaseDescParams = function(item){
                     scale: typeConfig.scale * RJO.HE.VariableIconScale
                 };
                 
-                var text = "元素消耗 - ";
+                var text = "元素消耗 -";
                 item.descParams.push([text, RJO.HE.ItemDescOtherSize, RJO.HE.SkillDescVarCostColor, false, 0, iconData]);
             }
         }
