@@ -33,8 +33,7 @@
  * @param Reflect Image
  * @desc 反射图片的文件名 (放在 img/system/ 文件夹内)
  * @default Reflect
- * 
- * @help  
+ * * @help  
  * =============================================================================
  * +++ MOG - Damage Popup Effects (v1.0) +++
  * By Moghunter 
@@ -49,11 +48,11 @@
  * É possível ajustar a posição do dano usando o comentário abaixo na 
  * caixa de notas.
  *
- *   Damage Offset: X:Y 
+ * Damage Offset: X:Y 
  *
  * Exemplo
  *
- *   Damage Offset: 60:20
+ * Damage Offset: 60:20
  *
  */
 
@@ -182,6 +181,7 @@ Sprite_Damage.prototype.initialize = function() {
 	 this._zoomEffect = String(Moghunter.dmgp_zoom_effect) === "true" ? true : false;
 	 this._animeType = Math.min(Math.max(Moghunter.dmgp_popup_type,0),2);
 	 this._damage = [0,0];
+     this._critRecorded = false; // 初始化标记
 };
 
 //==============================
@@ -191,6 +191,18 @@ var _mog_dmgpop_sprdmg_setup = Sprite_Damage.prototype.setup;
 Sprite_Damage.prototype.setup = function(target) {
 	_mog_dmgpop_sprdmg_setup.call(this,target);
 	var result = target.result();
+    
+    // --- 修复开始 v2：解决双重暴击图问题 ---
+    // 逻辑：
+    // 1. result.critical 为真（发生了暴击）。
+    // 2. !this._critRecorded 为真（当前这个伤害数字还没有被标记为暴击）。
+    // 3. result.hpDamage === 0 为真（HP伤害为0，即完全吸收）。
+    //    如果 hpDamage > 0，说明护盾破了，系统会生成第二个HP伤害数字，那个数字会自动带暴击，所以这里不需要强制显示。
+    if (result.critical && !this._critRecorded && result.hpDamage === 0) {
+        this.setupCriticalEffect();
+    }
+    // --- 修复结束 ---
+
 	if (result.counter) {this.createCounter()
     } else if (result.reflection) {this.createReflection()};
 };
@@ -219,6 +231,7 @@ Sprite_Damage.prototype.createChildSpriteCustom = function(fileName) {
 // ** Create Critical (修改版)
 //==============================
 Sprite_Damage.prototype.createCritical = function() {
+    this._critRecorded = true; // 标记暴击已创建
     // 使用自定义图片
     var sprite = this.createChildSpriteCustom(Moghunter.dmgp_critImg);
     sprite.dy = 0;
