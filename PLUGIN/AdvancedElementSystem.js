@@ -1,6 +1,6 @@
 /*:
- * @plugindesc 属性克制系统 v6.2：音频闪避(Ducking)、智能延迟、含可开关的BGM测试日志。
- * @author Gemini AI
+ * @plugindesc 属性克制系统 v7.3：全局钳制(修复菜单显示) + 双重归整 + 去除Z值。
+ * @author Gemini AI (Mod)
  *
  * @param Skill Type ID
  * @text 核心元素技能类型ID
@@ -164,18 +164,20 @@
  *
  * @help
  * ============================================================================
- * 更新说明 (v6.2) - 测试开关
+ * 更新说明 (v7.3 Mod)
  * ============================================================================
- * 1. 明确的测试功能开关：
- * - 参数：【开启测试日志】(Enable Debug Log)
- * - 作用：用于检测 BGM 是否成功闪避（降低音量）。
+ * 1. 【全局属性钳制】(修复菜单显示)：
+ * 修改了底层的 elementRate 方法。
+ * 现在，无论是战斗计算、还是在状态菜单里查看，
+ * 只要属性有效度超过 140%，都会强制显示和按 140% 计算。
+ * 只要属性有效度低于 70%，都会强制显示和按 70% 计算。
  *
- * 2. 如何使用测试功能：
- * - 将【开启测试日志】设为 true。
- * - 进入游戏战斗，触发一次弱点或抵抗音效。
- * - 按 F8 打开控制台。
- * - 寻找紫色文字：[Audio Debug] 🎵 BGM Lowered...
- * - 它会显示：BGM 降低前是 100%，降低后是 70% (具体数值取决于你的设置)。
+ * 2. 【去除 Z 值】：
+ * 移除了核心技能的多重弱点加成机制。
+ *
+ * 3. 【双重归整逻辑】：
+ * - 计算结果 < 1.3：使用旧逻辑（保留 .00, .05, .10）。
+ * - 计算结果 >= 1.3：使用新逻辑（1,2->0; 3,4,6,7->5; 8,9->进位）。
  *
  * ============================================================================
  * 核心功能
@@ -183,7 +185,6 @@
  * 1. 智能闪避 (Ducking)：播放音效时自动压低 BGM 和其他 SE。
  * 2. 权重延迟：防止声音重叠。
  * 3. 属性叠加与去重。
- * 4. 数据库与备注极值计算 (Max/Min)。
  */
 
 (function() {
@@ -224,13 +225,11 @@
     // 调试开关
     var pDebugMode = (parameters['Enable Debug Log'] === 'true');
 
-    var zMultipliers = [1.0, 1.0, 1.111111111111, 1.157407407407, 1.205632716049, 1.205632716049];
-
     // ========================================================================
     //  调试日志辅助函数
     // ========================================================================
     function logDebug(type, message, color) {
-        if (!pDebugMode) return; // 如果关闭测试，直接返回，不执行
+        if (!pDebugMode) return;
         var tag = "%c[Audio Debug] " + type;
         var style = "color: " + color + "; font-weight: bold;";
         console.log(tag, style, message);
@@ -248,10 +247,9 @@
         _AudioManager_updateBgmParameters.call(this, bgm);
         
         if (this._duckingTimer > 0 && this._bgmBuffer && !this._bgmBuffer._isDucked) {
-            var oldVol = this._bgmBuffer.volume; // 获取原始音量
-            this._bgmBuffer.volume *= pBgmDuckRate; // 应用降低
+            var oldVol = this._bgmBuffer.volume;
+            this._bgmBuffer.volume *= pBgmDuckRate;
             
-            // 记录测试日志：BGM 变化
             if (this._duckingTimer === pDuckingDuration) { 
                 var oldPct = Math.round(oldVol * 100);
                 var newPct = Math.round(this._bgmBuffer.volume * 100);
@@ -343,7 +341,19 @@
     };
 
     // ========================================================================
-    //  属性计算 (保持不变)
+    //  全局属性有效度钳制 (v7.3 新增)
+    //  这里拦截了最底层的 elementRate，确保菜单显示和战斗计算都受影响
+    // ========================================================================
+    var _Game_BattlerBase_elementRate = Game_BattlerBase.prototype.elementRate;
+    Game_BattlerBase.prototype.elementRate = function(elementId) {
+        var rate = _Game_BattlerBase_elementRate.call(this, elementId);
+        // 强制限制在 0.7 ~ 1.4
+        // 任何调用 .elementRate(id) 的地方（包括状态菜单）都会拿到钳制后的值
+        return Math.min(1.4, Math.max(0.7, rate));
+    };
+
+    // ========================================================================
+    //  属性计算 (v7.2 -> v7.3 保留计算逻辑)
     // ========================================================================
     Game_Battler.prototype.getSpecificWeakRate = function(elementId) {
         var maxVal = null;
@@ -361,30 +371,30 @@
     Game_Action.prototype.calcElementRate = function(target) {
         var item = this.item();
         var elements = this.getSkillElements();
+        
         if (elements.length === 0) return 1.0;
-        var isCoreSkill = (item.stypeId === pCoreTypeId);
-        var netCount = 0;
+        
         var totalRateProduct = 1.0;
         for (var i = 0; i < elements.length; i++) {
             var eleId = elements[i];
-            var dbRate = target.elementRate(eleId);
+            var dbRate = target.elementRate(eleId); // 此时已是钳制过的值(0.7~1.4)
             var tagRate = target.getSpecificWeakRate(eleId);
             var finalEleRate = dbRate;
+            
             if (tagRate !== null) {
                 if (dbRate > 1.0 || tagRate > 1.0) finalEleRate = Math.max(dbRate, tagRate);
                 else finalEleRate = Math.min(dbRate, tagRate);
             }
+            
+            // 为了保险起见（防止备注tagRate突破天际），这里再次进行钳制
+            finalEleRate = Math.min(1.4, Math.max(0.7, finalEleRate));
+
             totalRateProduct *= finalEleRate;
-            if (finalEleRate > 1.0) netCount++;
-            else if (finalEleRate < 1.0) netCount--;
         }
-        var zVal = 1.0;
-        if (isCoreSkill && netCount > 0) {
-            var zIndex = Math.min(netCount, zMultipliers.length - 1);
-            zVal = zMultipliers[zIndex];
-        }
-        var rawRate = totalRateProduct * zVal;
+        
+        var rawRate = totalRateProduct;
         var finalRate = this.roundSpecial(rawRate);
+        
         if (target.result()) target.result()._elementRateDisplay = finalRate;
         return finalRate;
     };
@@ -404,12 +414,37 @@
         return elements.filter(function(item, pos) { return elements.indexOf(item) == pos; });
     };
 
+    // [MOD] 特殊归整函数 (双重逻辑)
     Game_Action.prototype.roundSpecial = function(num) {
-        var percent = Math.round(num * 100);
-        var lastDigit = percent % 10;
-        if (lastDigit < 5) percent -= lastDigit;
-        else if (lastDigit > 5) percent += (10 - lastDigit);
-        return percent / 100.0;
+        if (num < 1.3) {
+            // --- 逻辑 A: 倍率 < 1.3 ---
+            var percent = Math.round(num * 100);
+            var lastDigit = percent % 10;
+            
+            if (lastDigit < 5) percent -= lastDigit;      
+            else if (lastDigit > 5) percent += (10 - lastDigit);
+            
+            return percent / 100.0;
+            
+        } else {
+            // --- 逻辑 B: 倍率 >= 1.3 ---
+            var rounded1 = Math.round(num * 10) / 10;
+            
+            var str = rounded1.toFixed(1);
+            var parts = str.split('.');
+            var intPart = parseInt(parts[0]);
+            var decPart = parseInt(parts[1]); 
+            
+            if ([0, 1, 2].includes(decPart)) {
+                return intPart + 0.0;
+            } else if ([3, 4, 5, 6, 7].includes(decPart)) {
+                return intPart + 0.5;
+            } else if ([8, 9].includes(decPart)) {
+                return intPart + 1.0;
+            }
+            
+            return rounded1;
+        }
     };
 
     // ========================================================================
@@ -437,7 +472,7 @@
     };
 
     // ========================================================================
-    //  UI 显示 (v5.7 Fix版)
+    //  UI 显示
     // ========================================================================
     var _Game_ActionResult_clear = Game_ActionResult.prototype.clear;
     Game_ActionResult.prototype.clear = function() {
