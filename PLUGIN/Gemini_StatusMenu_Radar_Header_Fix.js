@@ -1,5 +1,5 @@
 /*:
- * @plugindesc [8维雷达 v5] 增加窗口坐标微调 + 图形位置微调
+ * @plugindesc [8维雷达 v5.4] 视觉上限修正 + 自定义达标颜色
  * @author Gemini
  *
  * @param --- 核心布局 ---
@@ -22,7 +22,7 @@
  * @off 显示 (默认)
  * @default true
  *
- * @param --- 窗口位置修正 (新) ---
+ * @param --- 窗口位置修正 ---
  *
  * @param Window Offset X
  * @text 窗口 X 坐标修正
@@ -81,52 +81,45 @@
  * @type number
  * @default 13
  *
+ * @param Alert Text Color
+ * @text 达标提示颜色
+ * @desc 属性达到软上限时的文字颜色索引。默认25(红色)。
+ * @type number
+ * @default 25
+ *
  * @help
  * ============================================================================
- * 更新说明 v5
+ * 更新说明 v5.4
  * ============================================================================
- * 新增了 [窗口位置修正] 参数：
- *
- * 1. [Window Offset X]:
- * - 如果您觉得雷达窗口离右边太近，可以填入负数 (例如 -10)。
- * - 如果您觉得中间的 SkillStatus 窗口太宽，想给雷达腾位置，可以填入负数。
- *
- * 2. [Window Offset Y]:
- * - 如果雷达窗口和指令窗口没对齐（比如偏高了），可以填入正数 (例如 5) 把它降下来。
- *
- * ============================================================================
- * 属性顺序
- * ============================================================================
- * HP -> MP -> 攻 -> 防 -> 魔攻 -> 魔防 -> 敏 -> 幸
+ * 1. 新增参数 [达标提示颜色]：
+ * 现在您可以自定义属性达到软上限时文字显示的颜色。
+ * (依赖 Gemini_ExcelStatsLink.js 提供判断逻辑)
  */
 
 (function() {
-    var parameters = PluginManager.parameters('Gemini_StatusMenu_Radar_8Param_v5');
-    if (!parameters['Radar Width']) {
-        var pluginName = "Gemini_StatusMenu_Radar_8Param_v5";
-        if (document.currentScript) {
-            pluginName = document.currentScript.src.split('/').pop().split('.').shift();
-        }
-        parameters = PluginManager.parameters(pluginName);
+    // 读取参数 (兼容原插件名)
+    var params = PluginManager.parameters('Gemini_StatusMenu_Radar_Header_Fix');
+    if (!params['Radar Width']) {
+        params = PluginManager.parameters('Gemini_StatusMenu_Radar_8Param_v5');
     }
 
-    // 基础参数
-    var forceScreenWidth = Number(parameters['Force Screen Width'] || 0);
-    var radarWidth = Number(parameters['Radar Width'] || 200);
-    var hideHelpWindow = (parameters['Hide Help Window'] !== 'false');
+    var forceScreenWidth = Number(params['Force Screen Width'] || 0);
+    var radarWidth = Number(params['Radar Width'] || 200);
+    var hideHelpWindow = (params['Hide Help Window'] !== 'false');
     
-    // 新增：窗口位置微调
-    var winOffsetX = Number(parameters['Window Offset X'] || 0);
-    var winOffsetY = Number(parameters['Window Offset Y'] || 0);
+    var winOffsetX = Number(params['Window Offset X'] || 0);
+    var winOffsetY = Number(params['Window Offset Y'] || 0);
 
-    // 图形参数
-    var globalScale = Number(parameters['Radar Scale'] || 100) / 100.0;
-    var baseRadius = Number(parameters['Radar Radius'] || 50);
-    var graphOffsetX = Number(parameters['Radar X Offset'] || 0);
-    var graphOffsetY = Number(parameters['Radar Y Offset'] || 10);
-    var fillColor = String(parameters['Fill Color'] || 'rgba(100, 200, 255, 0.6)');
-    var strokeColor = String(parameters['Stroke Color'] || 'rgba(255, 255, 255, 0.8)');
-    var baseFontSize = Number(parameters['Label Font Size'] || 13);
+    var globalScale = Number(params['Radar Scale'] || 100) / 100.0;
+    var baseRadius = Number(params['Radar Radius'] || 50);
+    var graphOffsetX = Number(params['Radar X Offset'] || 0);
+    var graphOffsetY = Number(params['Radar Y Offset'] || 10);
+    var fillColor = String(params['Fill Color'] || 'rgba(100, 200, 255, 0.6)');
+    var strokeColor = String(params['Stroke Color'] || 'rgba(255, 255, 255, 0.8)');
+    var baseFontSize = Number(params['Label Font Size'] || 13);
+    
+    // 新增：读取自定义颜色参数
+    var alertTextColor = Number(params['Alert Text Color'] || 25);
 
     // ========================================================================
     // 窗口创建与布局
@@ -139,12 +132,8 @@
             var wy = this._commandWindow.y;
 
             var totalW = (forceScreenWidth > 0) ? forceScreenWidth : Graphics.boxWidth;
-            
-            // 计算雷达位置 (加入微调)
             var radarX = totalW - radarWidth + winOffsetX;
             var radarY = wy + winOffsetY;
-            
-            // 状态窗口填满中间
             var statusW = radarX - wx;
 
             this._statusWindow = new Window_SkillStatus(wx, wy, statusW, wh);
@@ -173,15 +162,11 @@
         var cmdH = this._commandWindow.height;
         
         var totalW = (forceScreenWidth > 0) ? forceScreenWidth : Graphics.boxWidth;
-        
-        // 计算目标位置 (加入微调)
         var targetRadarX = totalW - radarWidth + winOffsetX;
         var targetRadarY = cmdY + winOffsetY;
-        
         var targetStatusX = cmdX + cmdW;
         var targetStatusW = targetRadarX - targetStatusX;
 
-        // 应用位置
         if (this._radarWindow.x !== targetRadarX) this._radarWindow.x = targetRadarX;
         if (this._radarWindow.y !== targetRadarY) this._radarWindow.y = targetRadarY;
         
@@ -193,7 +178,6 @@
         if (this._statusWindow.x !== targetStatusX) this._statusWindow.x = targetStatusX;
         if (this._statusWindow.y !== cmdY)          this._statusWindow.y = cmdY;
         
-        // 只有宽度变化大时才重绘
         if (Math.abs(this._statusWindow.width - targetStatusW) > 1) {
             this._statusWindow.width = targetStatusW;
             this._statusWindow.createContents();
@@ -220,7 +204,7 @@
     };
 
     // ========================================================================
-    // 雷达图绘制
+    // 雷达图绘制类
     // ========================================================================
 
     function Window_StatusRadar() {
@@ -249,10 +233,8 @@
     };
 
     Window_StatusRadar.prototype.drawRadarGraph = function() {
-        // 使用图形偏移参数
         var cx = (this.contents.width / 2) + graphOffsetX;
         var cy = (this.contents.height / 2) + graphOffsetY;
-        
         var radius = baseRadius * globalScale;
         var fontSize = Math.max(10, Math.floor(baseFontSize * globalScale));
         
@@ -264,7 +246,7 @@
         var ctx = this.contents.context;
         ctx.save();
         
-        // 网格
+        // 1. 绘制网格
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = 1;
         ctx.setLineDash([2, 2]);
@@ -284,7 +266,7 @@
             ctx.stroke();
         }
 
-        // 数据
+        // 2. 绘制数据区域
         ctx.setLineDash([]);
         ctx.fillStyle = fillColor;
         ctx.strokeStyle = fillColor.replace('0.6', '1.0');
@@ -295,8 +277,11 @@
             var pId = paramIds[i];
             var val = this._actor.param(pId);
             
+            // 使用视觉固定上限
             var max = 1;
-            if (this._actor.paramMax) {
+            if (typeof this._actor.getVisualChapterLimit === 'function') {
+                max = this._actor.getVisualChapterLimit(pId);
+            } else if (this._actor.paramMax) {
                 max = this._actor.paramMax(pId); 
             }
             if (max <= 0) max = 1;
@@ -316,11 +301,10 @@
         ctx.fill();
         ctx.stroke();
 
-        // 文字
+        // 3. 绘制文字标签
         this.contents.fontSize = fontSize;
         for (var i = 0; i < count; i++) {
             var pId = paramIds[i];
-            
             var name = "";
             if (pId === 0) name = "HP";
             else if (pId === 1) name = "MP";
@@ -332,14 +316,12 @@
             else name = TextManager.param(pId);
 
             var angle = startAngle + i * angleStep;
-            
             var labelDist = radius + (12 * globalScale); 
             var lx = cx + Math.cos(angle) * labelDist;
             var ly = cy + Math.sin(angle) * labelDist;
 
             var align = 'center';
             var cosV = Math.cos(angle);
-            
             if (Math.abs(cosV) < 0.2) align = 'center';
             else if (cosV > 0) align = 'left';
             else align = 'right';
@@ -352,7 +334,20 @@
 
             var ty = ly - (this.lineHeight() / 2);
 
-            this.changeTextColor(this.systemColor());
+            // --- 核心修改：检测是否达到软上限 ---
+            var isCapped = false;
+            // 确保函数存在（v1.7 提供了这个函数）
+            if (this._actor && typeof this._actor.isParamReachedChapterCap === 'function') {
+                isCapped = this._actor.isParamReachedChapterCap(pId);
+            }
+
+            if (isCapped) {
+                this.changeTextColor(this.textColor(alertTextColor)); // 使用参数颜色
+            } else {
+                this.changeTextColor(this.systemColor());
+            }
+            // -------------------------------
+
             this.drawText(name, tx, ty, textWidth + 10, 'left');
         }
 
