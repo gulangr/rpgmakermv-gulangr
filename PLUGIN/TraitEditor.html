@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RMMV 特性集 Pro v7.1 (CSS Fix)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
+    <style>
+        body { background-color: #f0f2f5; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; user-select: none; --primary-color: #409eff; }
+        
+        /* === 左侧树形列表 === */
+        .tree-container { 
+            height: 72vh; overflow-y: auto; padding: 8px; background: white; 
+            border: 1px solid #dcdfe6; border-radius: 4px; box-shadow: inset 0 0 6px rgba(0,0,0,0.02);
+        }
+        .tree-node { margin-left: 18px; position: relative; }
+        .tree-node::before { content: ""; position: absolute; top: 0; left: -12px; bottom: 0; border-left: 1px dashed #ccc; }
+        .tree-node:last-child::before { height: 16px; }
+
+        .node-content {
+            display: flex; align-items: center; padding: 5px 8px; margin-bottom: 2px;
+            border-radius: 4px; cursor: pointer; transition: background 0.1s; border: 2px solid transparent;
+        }
+        .node-content:hover { background-color: #f5f7fa; }
+        .node-content.active { background-color: #ecf5ff; border-color: #b3d8ff; }
+        
+        /* 拖拽反馈样式 */
+        .node-content.drag-over-folder { background-color: #d9ecff !important; border: 2px dashed #409eff !important; }
+        .node-content.drag-over-sibling { border-bottom: 2px solid #e6a23c !important; }
+        .node-content.dragging { opacity: 0.5; background: #eee; }
+
+        /* 文件夹三角图标 (增大点击热区) */
+        .folder-toggle {
+            display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center;
+            cursor: pointer; margin-right: 4px; color: #909399; border-radius: 3px;
+        }
+        .folder-toggle:hover { background-color: rgba(0,0,0,0.1); color: #333; }
+        .folder-icon { transition: transform 0.2s; font-size: 0.8rem; }
+        .folder-icon.open { transform: rotate(90deg); }
+        .folder-main-icon { color: #e6a23c; margin-right: 6px; }
+        
+        .set-icon { color: #409eff; margin-right: 6px; margin-left: 24px; /* 对齐无三角的行 */ }
+        .id-badge { background-color: #2c3e50; color: #fff; font-family: monospace; font-size: 0.75rem; padding: 1px 4px; border-radius: 3px; margin-right: 6px; font-weight: bold; min-width: 28px; text-align: center; }
+        
+        .node-title-input { border: none; background: transparent; color: #333; font-size: 0.95rem; width: 100%; }
+        .node-title-input:focus { outline: none; border-bottom: 1px solid #409eff; background: white; }
+        
+        .node-tools { display: none; margin-left: auto; }
+        .node-content:hover .node-tools, .node-content.active .node-tools { display: flex; gap: 4px; }
+        .btn-tool { padding: 0 4px; color: #909399; font-size: 0.85rem; }
+        .btn-tool:hover { color: #409eff; }
+        .btn-tool.delete:hover { color: #f56c6c; }
+        .match-highlight { background-color: #fff7d1 !important; border-color: #e6a23c !important; }
+
+        /* === 右侧编辑器 === */
+        .editor-panel { position: sticky; top: 10px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #ebeef5; height: 100%; display: flex; flex-direction: column; }
+        .inner-trait-list { flex-grow: 1; max-height: 35vh; overflow-y: auto; background: #f8f9fa; border: 1px solid #eee; padding: 5px; border-radius: 4px; margin-bottom: 10px; }
+        .trait-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; margin-bottom: 4px; background: white; border-left: 3px solid #ccc; border-radius: 3px; font-size: 0.9rem; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+        .trait-item:hover { background: #f0f9eb; }
+        .trait-item.editing { background: #ecf5ff; border-left-color: #409eff !important; }
+        
+        .cat-1 { border-left-color: #f56c6c !important; } .cat-2 { border-left-color: #409eff !important; } .cat-3 { border-left-color: #e6a23c !important; } .cat-4 { border-left-color: #909399 !important; } .cat-5 { border-left-color: #67c23a !important; } .cat-6 { border-left-color: #303133 !important; } .cat-custom { border-left-color: #6f42c1 !important; background-color: #fdfbff; }
+
+        /* === 自定义特性 UI === */
+        .custom-tabs-scroll { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; border-bottom: 1px solid #dee2e6; margin-bottom: 10px; }
+        .custom-tab-item { display: inline-block; padding: 4px 12px; margin-right: 5px; border: 1px solid #eee; border-radius: 20px; cursor: pointer; font-size: 0.8rem; background: #fff; transition: all 0.2s; }
+        .custom-tab-item.active { background: #6f42c1; color: white; border-color: #6f42c1; box-shadow: 0 2px 4px rgba(111, 66, 193, 0.3); }
+        
+        .custom-options-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; max-height: 200px; overflow-y: auto; padding: 2px; }
+        .custom-option-card { border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; text-align: center; cursor: pointer; position: relative; background: #fff; transition: all 0.2s; }
+        .custom-option-card:hover { border-color: #6f42c1; transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        
+        /* 修复：使用 box-shadow 代替 ring */
+        .custom-option-card.selected { 
+            border-color: #6f42c1; 
+            background-color: #f3e5f5; 
+            box-shadow: 0 0 0 2px rgba(111, 66, 193, 0.5); /* 替代 ring */
+        }
+        
+        .custom-option-name { font-weight: bold; font-size: 0.85rem; color: #333; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .custom-option-code { font-size: 0.7rem; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace; background: #f8f9fa; border-radius: 3px; padding: 1px 3px; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal-box { background: white; padding: 24px; border-radius: 12px; width: 450px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: slideIn 0.2s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .db-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; } .db-ok { background: #67c23a; } .db-no { background: #909399; }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container-fluid py-3">
+
+    <div v-if="showCatModal" class="modal-overlay" @click.self="showCatModal = false">
+        <div class="modal-box" style="width: 320px;">
+            <h5 class="mb-3 fw-bold">📂 管理自定义分类</h5>
+            <input type="text" class="form-control mb-3" v-model="editingCatName" placeholder="分类名称">
+            <div class="d-flex justify-content-between align-items-center">
+                <button v-if="editingCatId" class="btn btn-outline-danger btn-sm" @click="deleteCategory">删除分类</button>
+                <div class="ms-auto"><button class="btn btn-secondary btn-sm me-2" @click="showCatModal = false">取消</button><button class="btn btn-primary btn-sm" @click="saveCategory">保存</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="showCustomModal" class="modal-overlay" @click.self="showCustomModal = false">
+        <div class="modal-box">
+            <h5 class="mb-3 fw-bold text-purple"><i class="bi bi-code-slash"></i> 编辑自定义特性</h5>
+            <div class="mb-3"><label class="form-label small fw-bold text-secondary">选项名称</label><input type="text" class="form-control" v-model="editingOption.name" placeholder="例如：突破伤害上限"></div>
+            <div class="mb-3"><label class="form-label small fw-bold text-danger">📝 代码 (备注区)</label><textarea class="form-control font-monospace bg-light" rows="3" v-model="editingOption.code" placeholder="<Break Damage Limit>"></textarea></div>
+            <div class="mb-4"><label class="form-label small fw-bold text-secondary">备注 (助记)</label><input type="text" class="form-control form-control-sm" v-model="editingOption.note"></div>
+            <div class="d-flex justify-content-between"><button v-if="editingOption.id" class="btn btn-outline-danger btn-sm" @click="deleteCustomOption">删除选项</button><div class="ms-auto"><button class="btn btn-secondary btn-sm me-2" @click="showCustomModal = false">取消</button><button class="btn btn-primary btn-sm" @click="saveCustomOption">保存配置</button></div></div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center bg-white p-2 px-3 rounded shadow-sm">
+                <div class="d-flex align-items-center">
+                    <h5 class="m-0 text-primary fw-bold me-3"><i class="bi bi-folder2-open"></i> 特性集 Pro v7.1</h5>
+                    <span class="badge bg-light text-secondary border d-flex align-items-center"><span class="db-status-dot me-2" :class="dbReady ? 'db-ok' : 'db-no'"></span>{{ dbReady ? '数据库已就绪' : '未加载数据库' }}</span>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary me-2" @click="triggerFolderSelect">📂 加载Data</button>
+                    <input type="file" id="folderInput" webkitdirectory directory multiple hidden @change="handleFolderSelect">
+                    <button class="btn btn-sm btn-success me-2" @click="saveJson">💾 导出JSON</button>
+                    <button class="btn btn-sm btn-secondary" @click="triggerJsonLoad">📥 导入JSON</button>
+                    <input type="file" id="jsonInput" hidden accept=".json" @change="loadUserJson">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-7">
+            <div class="d-flex gap-2 mb-2 flex-wrap">
+                <button class="btn btn-primary btn-sm" @click="addFolder"><i class="bi bi-folder-plus"></i> 文件夹</button>
+                <button class="btn btn-primary btn-sm" @click="addSet"><i class="bi bi-file-earmark-plus"></i> 特性集</button>
+                <div class="vr mx-1"></div>
+                <button class="btn btn-outline-secondary btn-sm" @click="collapseAll"><i class="bi bi-arrows-collapse"></i> 收起</button>
+                <button class="btn btn-outline-secondary btn-sm" :class="{active: filterRootOnly}" @click="toggleRootOnly"><i class="bi bi-eye-slash"></i> 仅看未归类</button>
+            </div>
+
+            <div class="input-group input-group-sm mb-2">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" v-model="searchQuery" placeholder="搜索名称、备注、内部代码...">
+            </div>
+
+            <div class="tree-container" @dragover.prevent @drop="onDropRoot">
+                <tree-list 
+                    :nodes="filterRootOnly ? rootNodes : treeData" 
+                    :selected-id="selectedId" 
+                    :search-query="searchQuery" 
+                    :id-map="setIdMap"
+                    :drag-state="dragState"
+                    @select="handleSelect" 
+                    @toggle="handleToggle" 
+                    @delete="handleDelete" 
+                    @drag-start="handleDragStart"
+                    @drag-over="handleDragOver"
+                    @drop-node="handleDropNode"
+                ></tree-list>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="editor-panel" v-if="selectedNode && selectedNode.type === 'set'">
+                <div class="card-header bg-primary text-white p-3 rounded-top">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold"><i class="bi bi-pencil-square"></i> {{ selectedNode.name }}</h6>
+                        <span class="badge bg-white text-primary">ID: {{ setIdMap[selectedNode.id] || '---' }}</span>
+                    </div>
+                </div>
+                
+                <div class="p-3 d-flex flex-column h-100 overflow-hidden">
+                    <div class="mb-2"><textarea class="form-control form-control-sm" rows="1" v-model="selectedNode.note" placeholder="集合备注..."></textarea></div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small fw-bold text-secondary">包含特性 ({{ selectedNode.traits.length }})</span>
+                        <button class="btn btn-sm btn-outline-primary py-0" @click="resetToAddMode" v-if="currentTraitIdx !== -1">
+                            <i class="bi bi-plus-lg"></i> 添加新特性
+                        </button>
+                    </div>
+
+                    <div class="inner-trait-list">
+                        <div v-if="selectedNode.traits.length === 0" class="text-center text-muted small py-4">暂无特性，请在下方添加</div>
+                        <div v-for="(trait, idx) in selectedNode.traits" :key="idx" class="trait-item" :class="[getTraitClass(trait), { 'editing': currentTraitIdx === idx }]" @click="editSetTrait(idx)">
+                            <div class="text-truncate" style="max-width: 90%;">
+                                <span v-if="trait.isCustom" class="badge bg-secondary me-1" style="font-size:0.6rem;">自</span>
+                                <span class="fw-bold text-secondary">{{ getTraitLabel(trait) }}</span>
+                                <span class="text-primary ms-2 fw-bold">{{ getTraitValueDesc(trait) }}</span>
+                                <span v-if="trait.note" class="text-muted small ms-2 fst-italic">({{ trait.note }})</span>
+                            </div>
+                            <i class="bi bi-x text-danger ms-2" @click.stop="removeTrait(idx)"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border rounded shadow-sm p-3 d-flex flex-column" style="min-height: 280px;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 small fw-bold" :class="currentTraitIdx !== -1 ? 'text-success' : 'text-primary'">
+                                {{ currentTraitIdx !== -1 ? '✏️ 正在编辑选中项' : '➕ 添加新特性模式' }}
+                            </h6>
+                        </div>
+
+                        <ul class="nav nav-tabs mb-3 small w-100">
+                            <li class="nav-item" v-for="(tab, key) in definitions" :key="key"><a class="nav-link py-1 px-2" :class="{active: activeTab === key}" href="#" @click.prevent="switchTab(key)">{{ tab.name }}</a></li>
+                            <li class="nav-item"><a class="nav-link py-1 px-2 fw-bold text-purple" :class="{active: activeTab === 'custom'}" style="color: #6f42c1;" href="#" @click.prevent="switchTab('custom')"><i class="bi bi-stars"></i> 自定义</a></li>
+                        </ul>
+
+                        <div v-if="activeTab !== 'custom'">
+                             <div class="row g-2 mb-2">
+                                <div class="col-12"><select class="form-select form-select-sm" v-model="editor.code" @change="onCodeChange"><option v-for="opt in currentTabOptions" :value="opt.code">{{ opt.name }}</option></select></div>
+                                <div class="col-8" v-if="editor.hasDataId">
+                                    <select v-if="editor.inputType === 'select'" class="form-select form-select-sm" v-model.number="editor.dataId"><option v-for="item in currentSelectOptions" :value="item.id">{{ item.name }}</option></select>
+                                    <select v-else-if="editor.inputType === 'fixed'" class="form-select form-select-sm" v-model.number="editor.dataId"><option v-for="(label, idx) in editor.fixedOptions" :value="idx">{{ label }}</option></select>
+                                    <input v-else type="number" class="form-control form-control-sm" v-model.number="editor.dataId">
+                                </div>
+                                <div class="col-4" v-if="editor.hasValue"><div class="input-group input-group-sm"><input type="number" class="form-control" v-model.number="editor.value" :step="editor.valueStep"><span v-if="editor.isPercent" class="input-group-text">%</span></div></div>
+                            </div>
+                            <div class="d-grid mt-3">
+                                <button v-if="currentTraitIdx !== -1 && !isEditingCustom" class="btn btn-success btn-sm" @click="updateStandardTrait">🔄 更新当前特性</button>
+                                <button v-else class="btn btn-primary btn-sm" @click="addStandardTrait">➕ 添加到列表</button>
+                            </div>
+                        </div>
+
+                        <div v-else class="d-flex flex-column h-100">
+                            <div class="custom-tabs-scroll"><span v-for="cat in customLibrary" :key="cat.id" class="custom-tab-item" :class="{active: activeCustomCatId === cat.id}" @click="activeCustomCatId = cat.id" @dblclick="editCategory(cat)">{{ cat.name }}</span><span class="custom-tab-item add-btn" @click="openNewCatModal">+</span></div>
+                            <div class="custom-options-grid flex-grow-1">
+                                <div class="custom-option-card d-flex justify-content-center align-items-center" @click="openNewOptionModal"><span class="text-muted small"><i class="bi bi-plus-lg"></i> 新增</span></div>
+                                <div v-for="opt in currentCustomOptions" :key="opt.id" class="custom-option-card" :class="{selected: selectedCustomOptionId === opt.id}" @click="selectedCustomOptionId = opt.id" @dblclick="editCustomOption(opt)"><div class="custom-option-name">{{ opt.name }}</div><div class="custom-option-code">{{ opt.code }}</div></div>
+                            </div>
+                            <div class="d-grid mt-2">
+                                <button v-if="currentTraitIdx !== -1 && isEditingCustom" class="btn btn-success btn-sm" @click="updateCustomTraitFromLib">🔄 更新当前特性</button>
+                                <button v-else class="btn btn-primary btn-sm" @click="addCustomTraitFromLib" :disabled="!selectedCustomOptionId" style="background-color: #6f42c1; border-color: #6f42c1;">➕ 加入列表</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div v-else class="text-center mt-5 text-muted opacity-50"><i class="bi bi-cursor fs-1"></i><p class="mt-3">请在左侧选择一个“特性集”进行编辑</p></div>
+        </div>
+    </div>
+</div>
+
+<script type="text/x-template" id="tree-node-template">
+    <div v-for="node in nodes" :key="node.id">
+        <div v-show="isVisible(node)">
+            <div class="tree-node">
+                <div class="node-content" 
+                     :class="{ 
+                        'active': selectedId === node.id, 
+                        'match-highlight': isMatch(node),
+                        'drag-over-folder': dragState.targetId === node.id && node.type === 'folder',
+                        'drag-over-sibling': dragState.targetId === node.id && node.type === 'set',
+                        'dragging': dragState.draggedId === node.id
+                     }"
+                     draggable="true"
+                     @click.stop="$emit('select', node.id)" 
+                     @dblclick.stop="handleDbClick(node)"
+                     @dragstart.stop="$emit('drag-start', { id: node.id, event: $event })"
+                     @dragover.prevent.stop="$emit('drag-over', { id: node.id, event: $event })"
+                     @drop.stop="$emit('drop-node', { targetId: node.id, event: $event })"
+                >
+                    <span v-if="node.type === 'folder'" class="folder-toggle" @click.stop="$emit('toggle', node.id)">
+                        <i class="bi bi-caret-right-fill folder-icon" :class="{ 'open': node.isOpen || isSearching }"></i>
+                    </span>
+                    <span v-else style="width:24px; display:inline-block;"></span>
+
+                    <i v-if="node.type === 'folder'" class="bi bi-folder-fill folder-main-icon"></i>
+                    <i v-else class="bi bi-file-earmark-text set-icon" style="margin-left:0;"></i>
+                    
+                    <span v-if="node.type === 'set'" class="id-badge">{{ idMap[node.id] || '?' }}</span>
+                    <input v-model="node.name" class="node-title-input" @click.stop @dblclick.stop>
+                    <div class="node-tools">
+                        <i class="bi bi-trash btn-tool delete" @click.stop="$emit('delete', node.id)"></i>
+                    </div>
+                </div>
+                <div v-if="node.type === 'folder' && (node.isOpen || isSearching)">
+                    <tree-list :nodes="node.children" :selected-id="selectedId" :search-query="searchQuery" :id-map="idMap" :drag-state="dragState"
+                               @select="$emit('select', $event)" @toggle="$emit('toggle', $event)" @delete="$emit('delete', $event)" 
+                               @drag-start="$emit('drag-start', $event)" @drag-over="$emit('drag-over', $event)" @drop-node="$emit('drop-node', $event)"></tree-list>
+                </div>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script>
+const { createApp, reactive, computed, ref, onMounted, defineComponent } = Vue;
+const { get, set } = idbKeyval;
+
+// RMMV Constants (Full)
+const PARAMS = ["MHP", "MMP", "ATK", "DEF", "MAT", "MDF", "AGI", "LUK"];
+const XPARAMS = ["命中率", "回避率", "暴击率", "暴击回避", "魔法回避", "魔法反射", "反击率", "HP再生", "MP再生", "TP再生"];
+const SPARAMS = ["受到攻击率", "防御效果", "恢复效果", "药理知识", "MP消费率", "TP消耗率", "物理伤害率", "魔法伤害率", "地形伤害率", "经验获得率"];
+const SLOT_TYPES = ["普通", "双持武器"];
+const SPECIAL_FLAGS = ["自动战斗", "防御", "援护", "保留 TP"];
+const COLLAPSE_TYPES = ["普通", "BOSS", "瞬间", "不消失"];
+const PARTY_ABILITIES = ["遇敌减半", "无遇敌", "偷袭无效", "先制攻击率提升", "金钱双倍", "掉落双倍"];
+
+const uuid = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+const db = reactive({ System: null, States: null, Skills: null });
+
+const getTraitLabel = (trait) => {
+    if (trait.isCustom) return trait.name || "自定义";
+    const map = {1: "抗性", 2: "能力", 3: "攻击", 4: "技能", 5: "装备", 6: "其他"};
+    let base = map[Math.floor(trait.code/10)] || "Code";
+    let name = ""; const id = trait.dataId;
+    
+    if ([11,31].includes(trait.code)) name = db.System?.elements[id];
+    else if ([13,14,32].includes(trait.code)) name = db.States?.[id]?.name;
+    else if ([43,44].includes(trait.code)) name = db.Skills?.[id]?.name;
+    else if ([41,42].includes(trait.code)) name = db.System?.skillTypes[id];
+    else if (trait.code===51) name = db.System?.weaponTypes[id];
+    else if (trait.code===52) name = db.System?.armorTypes[id];
+    else if ([53,54].includes(trait.code)) name = db.System?.equipTypes[id];
+    else if ([12,21].includes(trait.code)) name = PARAMS[id];
+    else if (trait.code===22) name = XPARAMS[id];
+    else if (trait.code===23) name = SPARAMS[id];
+    else if (trait.code===55) name = SLOT_TYPES[id];
+    else if (trait.code===62) name = SPECIAL_FLAGS[id];
+    else if (trait.code===63) name = COLLAPSE_TYPES[id];
+    else if (trait.code===64) name = PARTY_ABILITIES[id];
+    
+    if(name) return `${base}: ${name}`; return `${base} (ID ${id})`;
+};
+const getTraitValueDesc = (t) => t.isCustom ? `[代码]` : ([11,12,13,21,22,23,32,61].includes(t.code) ? `${Math.round(t.value*100)}%` : (t.code===33?`+${t.value}`:(t.code===34?`+${t.value}次`:'')));
+const getTraitClass = (t) => t.isCustom ? 'cat-custom' : ('cat-' + Math.floor(t.code/10));
+
+const TreeList = defineComponent({
+    name: 'TreeList', template: '#tree-node-template',
+    props: ['nodes', 'selectedId', 'searchQuery', 'idMap', 'dragState'],
+    emits: ['select', 'toggle', 'delete', 'drag-start', 'drag-over', 'drop-node'],
+    setup(props, { emit }) {
+        const isSearching = computed(() => !!props.searchQuery.trim());
+        const isMatch = (node) => {
+            if (!isSearching.value) return false;
+            const q = props.searchQuery.toLowerCase();
+            if (node.name.toLowerCase().includes(q)) return true;
+            if (node.type === 'set' && node.traits) return node.traits.some(t => { if(t.isCustom)return(t.name+t.code).toLowerCase().includes(q); return getTraitLabel(t).toLowerCase().includes(q); });
+            return false;
+        };
+        const isVisible = (node) => {
+            if (!isSearching.value) return true;
+            if (isMatch(node)) return true;
+            if (node.type === 'folder' && node.children) return node.children.some(c => isVisible(c) || isMatch(c));
+            return false;
+        };
+        const handleDbClick = (node) => { if (node.type === 'folder') emit('toggle', node.id); };
+        return { isSearching, isMatch, isVisible, handleDbClick };
+    }
+});
+
+createApp({
+    components: { TreeList },
+    setup() {
+        const treeData = ref([]);
+        const selectedId = ref(null);
+        const searchQuery = ref("");
+        const filterRootOnly = ref(false);
+        const dbReady = computed(() => !!db.System);
+        const currentTraitIdx = ref(-1);
+        const activeTab = ref('rates');
+        const editor = reactive({ code: 11, dataId: 1, value: 100, hasDataId: true, hasValue: true, dataIdLabel: "ID", inputType: "select", fixedOptions: [], isPercent: true, valueStep: 1 });
+        const dragState = reactive({ draggedId: null, targetId: null });
+
+        const customLibrary = ref([ { id: 'default', name: '常用', options: [] } ]);
+        const activeCustomCatId = ref('default');
+        const selectedCustomOptionId = ref(null);
+        const showCatModal = ref(false); const showCustomModal = ref(false);
+        const editingCatName = ref(''); const editingCatId = ref(null);
+        const editingOption = reactive({ id: null, name: '', code: '', note: '' });
+
+        const setIdMap = computed(() => {
+            const map = {}; let count = 1;
+            const traverse = (nodes) => { nodes.forEach(n => { if(n.type==='set'){ map[n.id] = count.toString().padStart(3,'0'); count++; } if(n.children) traverse(n.children); }); };
+            traverse(treeData.value); return map;
+        });
+
+        const definitions = {
+            rates: { name: "抗性", options: [{ code: 11, name: "元素有效度", type: 'element' }, { code: 12, name: "弱化有效度", type: 'param' }, { code: 13, name: "状态有效度", type: 'state' }, { code: 14, name: "状态免疫", type: 'state', noValue: true }] },
+            params: { name: "能力", options: [{ code: 21, name: "普通能力值", type: 'paramBase' }, { code: 22, name: "追加能力值", type: 'paramX', isAdd:true }, { code: 23, name: "特殊能力值", type: 'paramS' }] },
+            attack: { name: "攻击", options: [{ code: 31, name: "攻击元素", type: 'element', noValue:true }, { code: 32, name: "攻击状态", type: 'state' }, { code: 33, name: "攻击速度", type: 'none', valueOnly:true }, { code: 34, name: "攻击次数", type: 'none', valueOnly:true }] },
+            skill: { name: "技能", options: [{ code: 41, name: "添加技能类型", type: 'skillType', noValue:true }, { code: 42, name: "封印技能类型", type: 'skillType', noValue:true }, { code: 43, name: "添加技能", type: 'skill', noValue:true }, { code: 44, name: "封印技能", type: 'skill', noValue:true }] },
+            equip: { name: "装备", options: [{ code: 51, name: "装备武器类型", type: 'weaponType', noValue:true }, { code: 52, name: "装备防具类型", type: 'armorType', noValue:true }, { code: 53, name: "固定装备", type: 'equipType', noValue:true }, { code: 54, name: "封印装备", type: 'equipType', noValue:true }, { code: 55, name: "槽位类型", type: 'slotType', noValue:true }] },
+            other: { name: "其他", options: [{ code: 61, name: "行动次数追加", type: 'none', valueOnly:true, step:1 }, { code: 62, name: "特殊标志", type: 'flag', noValue:true }, { code: 63, name: "消失效果", type: 'collapse', noValue:true }, { code: 64, name: "队伍能力", type: 'party', noValue:true }] }
+        };
+        const currentTabOptions = computed(() => definitions[activeTab.value]?.options || []);
+        
+        const currentSelectOptions = computed(() => {
+            const def = currentTabOptions.value.find(o => o.code === editor.code); if (!def) return [];
+            const makeList = (src) => { if(!src) return Array.from({length:20},(_,i)=>({id:i+1,name:`ID ${i+1}`})); return src.map((item,i) => item ? {id:i, name: (typeof item==='string'?item:item.name)||`ID ${i}`} : null).filter(i=>i&&i.id>0); };
+            if (def.type === 'element') return makeList(db.System?.elements);
+            if (def.type === 'state') return makeList(db.States);
+            if (def.type === 'skill') return makeList(db.Skills);
+            if (def.type === 'skillType') return makeList(db.System?.skillTypes);
+            if (def.type === 'weaponType') return makeList(db.System?.weaponTypes);
+            if (def.type === 'armorType') return makeList(db.System?.armorTypes);
+            if (def.type === 'equipType') return makeList(db.System?.equipTypes);
+            return []; 
+        });
+
+        const currentCustomOptions = computed(() => { const cat = customLibrary.value.find(c => c.id === activeCustomCatId.value); return cat ? cat.options : []; });
+
+        const switchTab = (key, overrideCode = null) => {
+            activeTab.value = key;
+            if (key !== 'custom') {
+                const def = definitions[key];
+                if (def && def.options.length > 0) { editor.code = overrideCode || def.options[0].code; onCodeChange(); }
+            }
+        };
+
+        const onCodeChange = () => {
+            const def = currentTabOptions.value.find(o => o.code === editor.code); if (!def) return;
+            editor.hasDataId = !def.valueOnly; editor.hasValue = !def.noValue;
+            editor.isPercent = def.percent !== false; editor.valueStep = def.step || 1;
+            editor.dataId = 1; editor.value = editor.isPercent ? 100 : 0;
+            if (['paramBase', 'paramX', 'paramS', 'slotType', 'flag', 'collapse', 'party'].includes(def.type)) {
+                editor.inputType = 'fixed'; editor.dataId = 0; 
+                if(def.type==='paramBase') editor.fixedOptions = PARAMS; 
+                else if(def.type==='paramX') editor.fixedOptions = XPARAMS; 
+                else if(def.type==='paramS') editor.fixedOptions = SPARAMS;
+                else if(def.type==='slotType') editor.fixedOptions = SLOT_TYPES;
+                else if(def.type==='flag') editor.fixedOptions = SPECIAL_FLAGS;
+                else if(def.type==='collapse') editor.fixedOptions = COLLAPSE_TYPES;
+                else if(def.type==='party') editor.fixedOptions = PARTY_ABILITIES;
+            } else if (def.type === 'param') { editor.inputType = 'fixed'; editor.fixedOptions = PARAMS; editor.dataId = 0; }
+            else if (def.valueOnly) { editor.hasDataId = false; } else { editor.inputType = 'select'; }
+        };
+
+        const findNodeAndParent = (nodes, id, parent = null) => {
+            for (let i = 0; i < nodes.length; i++) {
+                if (nodes[i].id === id) return { node: nodes[i], parentArray: nodes, index: i, parentNode: parent };
+                if (nodes[i].children) { const res = findNodeAndParent(nodes[i].children, id, nodes[i]); if (res) return res; }
+            }
+            return null;
+        };
+
+        const handleSelect = (id) => { selectedId.value=id; currentTraitIdx.value=-1; };
+        const handleToggle = (id) => { const r = findNodeAndParent(treeData.value, id); if(r && r.node.type==='folder') r.node.isOpen = !r.node.isOpen; };
+        
+        const getActiveParent = () => {
+            if (!selectedId.value) return { array: treeData.value, parent: null };
+            const sel = findNodeAndParent(treeData.value, selectedId.value);
+            if (sel && sel.node.type === 'folder') return { array: sel.node.children, parent: sel.node };
+            if (sel) return { array: sel.parentArray, parent: sel.parentNode };
+            return { array: treeData.value, parent: null };
+        };
+
+        const addFolder = () => {
+            const { array, parent } = getActiveParent();
+            array.push({id:uuid(), type:'folder', name:'新文件夹', children:[], isOpen:true});
+            if(parent) parent.isOpen = true;
+        };
+        const addSet = () => {
+            const { array, parent } = getActiveParent();
+            const newItem = {id:uuid(), type:'set', name:'新特性集', traits:[], note:''};
+            array.push(newItem);
+            if(parent) parent.isOpen = true;
+            selectedId.value = newItem.id;
+        };
+
+        const handleDelete = (id) => {
+            if(!confirm("删除?")) return;
+            const res = findNodeAndParent(treeData.value, id);
+            if (res) { res.parentArray.splice(res.index, 1); if (selectedId.value === id) selectedId.value = null; }
+        };
+
+        const handleDragStart = ({ id, event }) => { 
+            dragState.draggedId = id; 
+            event.dataTransfer.effectAllowed = 'move';
+        };
+        const handleDragOver = ({ id, event }) => { 
+            if (dragState.draggedId === id) return;
+            const dragged = findNodeAndParent(treeData.value, dragState.draggedId);
+            const target = findNodeAndParent(treeData.value, id);
+            let p = target.parentNode;
+            while(p) { if(p.id === dragState.draggedId) return; p = findNodeAndParent(treeData.value, p.id)?.parentNode; }
+            dragState.targetId = id; 
+        };
+        const handleDropNode = ({ targetId, event }) => {
+            const draggedId = dragState.draggedId; dragState.draggedId = null; dragState.targetId = null;
+            if (draggedId === targetId) return;
+            const source = findNodeAndParent(treeData.value, draggedId);
+            const target = findNodeAndParent(treeData.value, targetId);
+            if (!source || !target) return;
+            const item = source.parentArray.splice(source.index, 1)[0];
+            if (target.node.type === 'folder') { target.node.children.push(item); target.node.isOpen = true; }
+            else { target.parentArray.splice(target.index + 1, 0, item); }
+        };
+        const onDropRoot = (e) => {};
+
+        const selectedNode = computed(() => { if(!selectedId.value) return null; return findNodeAndParent(treeData.value, selectedId.value)?.node; });
+        const editSetTrait = (idx) => {
+            currentTraitIdx.value = idx; const t = selectedNode.value.traits[idx];
+            if (t.isCustom) switchTab('custom'); else { const k = Object.keys(definitions).find(k=>definitions[k].options.some(o=>o.code===t.code))||'rates'; switchTab(k, t.code); setTimeout(()=>editor.dataId=t.dataId,0); }
+        };
+        
+        const resetToAddMode = () => { currentTraitIdx.value = -1; };
+
+        const addStandardTrait = () => selectedNode.value.traits.push({ isCustom: false, code: editor.code, dataId: editor.dataId, value: editor.hasValue?editor.value/100:0 });
+        const updateStandardTrait = () => selectedNode.value.traits[currentTraitIdx.value] = { isCustom: false, code: editor.code, dataId: editor.dataId, value: editor.hasValue?editor.value/100:0 };
+        const removeTrait = (idx) => { selectedNode.value.traits.splice(idx,1); if(currentTraitIdx.value===idx)currentTraitIdx.value=-1; };
+        
+        const openNewCatModal = () => { editingCatName.value=''; editingCatId.value=null; showCatModal.value=true; };
+        const editCategory = (c) => { editingCatName.value=c.name; editingCatId.value=c.id; showCatModal.value=true; };
+        const saveCategory = () => { if(editingCatId.value){customLibrary.value.find(x=>x.id===editingCatId.value).name=editingCatName.value}else{customLibrary.value.push({id:uuid(),name:editingCatName.value,options:[]})} showCatModal.value=false; saveLib(); };
+        const deleteCategory = () => { customLibrary.value.splice(customLibrary.value.findIndex(x=>x.id===editingCatId.value),1); if(!customLibrary.value.length)customLibrary.value.push({id:uuid(),name:'D',options:[]}); activeCustomCatId.value=customLibrary.value[0].id; showCatModal.value=false; saveLib(); };
+        const openNewOptionModal = () => { Object.assign(editingOption,{id:null,name:'',code:'',note:''}); showCustomModal.value=true; };
+        const editCustomOption = (o) => { Object.assign(editingOption,{...o}); showCustomModal.value=true; };
+        const saveCustomOption = () => { const cat=customLibrary.value.find(c=>c.id===activeCustomCatId.value); if(editingOption.id){const i=cat.options.findIndex(o=>o.id===editingOption.id);cat.options[i]={...editingOption}}else{cat.options.push({...editingOption,id:uuid()})} showCustomModal.value=false; saveLib(); };
+        const deleteCustomOption = () => { const cat=customLibrary.value.find(c=>c.id===activeCustomCatId.value); cat.options.splice(cat.options.findIndex(o=>o.id===editingOption.id),1); showCustomModal.value=false; saveLib(); };
+        const saveLib = () => set('rmmv_custom_lib', JSON.parse(JSON.stringify(customLibrary.value)));
+        const addCustomTraitFromLib = () => { const o=customLibrary.value.find(c=>c.id===activeCustomCatId.value).options.find(o=>o.id===selectedCustomOptionId.value); selectedNode.value.traits.push({isCustom:true,name:o.name,code:o.code,note:o.note}); };
+        const updateCustomTraitFromLib = () => { const o=customLibrary.value.find(c=>c.id===activeCustomCatId.value).options.find(o=>o.id===selectedCustomOptionId.value); selectedNode.value.traits[currentTraitIdx.value]={isCustom:true,name:o.name,code:o.code,note:o.note}; };
+        const isEditingCustom = computed(() => { if(currentTraitIdx.value===-1)return activeTab.value==='custom'; return selectedNode.value?.traits[currentTraitIdx.value]?.isCustom; });
+
+        onMounted(async () => { const l = await get('rmmv_custom_lib'); if(l) customLibrary.value=l; const c = await get('rmmv_db_cache'); if(c) Object.assign(db,c); onCodeChange(); });
+        
+        const triggerFolderSelect=()=>{document.getElementById('folderInput').click()}, handleFolderSelect=async(e)=>{ const files=e.target.files; if(!files.length)return; const rf=f=>new Promise(r=>{const rd=new FileReader();rd.onload=x=>{try{r(JSON.parse(x.target.result))}catch{r(null)}};rd.readAsText(f)}); const n={System:null,States:null,Skills:null}; for(let f of files){if(f.name==='System.json')n.System=await rf(f);if(f.name==='States.json')n.States=await rf(f);if(f.name==='Skills.json')n.Skills=await rf(f);} if(n.System){Object.assign(db,n);await set('rmmv_db_cache',JSON.parse(JSON.stringify(n)));alert('Loaded');} };
+        const saveJson=()=>{const b=new Blob([JSON.stringify(treeData.value,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download="traits.json";a.click();};
+        const triggerJsonLoad=()=>{document.getElementById('jsonInput').click()}; const loadUserJson=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=x=>{treeData.value=JSON.parse(x.target.result)};r.readAsText(f);};
+        const rootNodes = computed(() => treeData.value.filter(n => n.type === 'set'));
+        const collapseAll = () => { const rec=(ns)=>{ns.forEach(n=>{if(n.type==='folder'){n.isOpen=false;if(n.children)rec(n.children)}})}; rec(treeData.value); };
+        const toggleRootOnly = () => filterRootOnly.value = !filterRootOnly.value;
+
+        return { db, treeData, selectedId, filterRootOnly, dbReady, selectedNode, setIdMap, activeTab, editor, currentTraitIdx, currentTabOptions, currentSelectOptions, definitions, customLibrary, activeCustomCatId, selectedCustomOptionId, currentCustomOptions, showCatModal, showCustomModal, editingOption, editingCatName, editingCatId, openNewCatModal, editCategory, saveCategory, deleteCategory, openNewOptionModal, editCustomOption, saveCustomOption, deleteCustomOption, addCustomTraitFromLib, updateCustomTraitFromLib, isEditingCustom, addStandardTrait, updateStandardTrait, removeTrait, editSetTrait, handleSelect, handleToggle, addFolder, addSet, handleDelete, getTraitLabel, getTraitValueDesc, getTraitClass, triggerFolderSelect, handleFolderSelect, saveJson, triggerJsonLoad, loadUserJson, rootNodes, collapseAll, toggleRootOnly, switchTab, onCodeChange, searchQuery, handleDragStart, handleDragOver, handleDropNode, dragState, onDropRoot, resetToAddMode };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>

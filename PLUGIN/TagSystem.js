@@ -1,57 +1,168 @@
 /*:
- * @plugindesc (v3.6) 标签系统 - 装备标签标记版
- * @author Custom
+ * @plugindesc (v3.61 边框增强版) 标签系统 - 完美间隙+字体隔离+强制缩放+背景边框
+ * @author Custom & 适配修改 & Gemini优化
  *
- * @param --- Actor Settings ---
+ * @param --- 视觉自定义参数 ---
+ * @default
+ *
+ * @param FontSizeReduction
+ * @text 字号缩小幅度
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @min 1
+ * @max 20
+ * @desc 【】内文字的缩小单位（MV中2单位=1个视觉字号），默认4（2个字号）
+ * @default 4
+ *
+ * @param TagFontName
+ * @text 【】内文字字体
+ * @parent --- 视觉自定义参数 ---
+ * @type string
+ * @desc 填写字体名称（需与MV编辑器「数据库→系统→字体」一致，如：微软雅黑/Meiryo）
+ * @default 微软雅黑
+ *
+ * @param BgHeightRatio
+ * @text 背景高度比例
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @decimals 2
+ * @min 0.1
+ * @max 5.0
+ * @desc 背景块高度相对于普通文字字号的比例（0.1=极小，5.0=超大），默认0.9
+ * @default 0.9
+ *
+ * @param BgWidthScale
+ * @text 背景宽度扩展系数
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @decimals 2
+ * @min 0.5
+ * @max 3.0
+ * @desc 背景宽度相对文字宽度的扩展系数（1.0=与文字等宽，2.0=比文字宽1倍），默认1.2
+ * @default 1.2
+ *
+ * @param BgBorderRadius
+ * @text 背景圆角半径
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @min 0
+ * @max 50
+ * @desc 圆角矩形的圆角半径（0=直角，数值越大越圆），默认4
+ * @default 4
+ *
+ * @param BgHorizontalPadding
+ * @text 背景左右基础边距
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @min 0
+ * @max 20
+ * @desc 背景块左右额外预留的空白（基础边距，对称添加），默认2像素
+ * @default 2
+ *
+ * @param BgBlockMargin
+ * @text 背景块外部间距
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @min 0
+ * @max 50
+ * @desc 背景块与左右相邻文字的距离（像素），默认2
+ * @default 2
+ *
+ * @param BgOpacity
+ * @text 背景块不透明度
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @min 0
+ * @max 255
+ * @desc 背景颜色块的不透明度（0=全透明，255=完全不透明），默认255。
+ * @default 255
+ * * @param BgStrokeWidth
+ * @text 背景边框宽度
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @min 0
+ * @max 10
+ * @desc 背景块的描边宽度（0=无边框），默认0
+ * @default 0
+ *
+ * @param BgStrokeColor
+ * @text 背景边框颜色
+ * @parent --- 视觉自定义参数 ---
+ * @type string
+ * @desc 背景块的描边颜色（支持Hex/RGB），默认#FFFFFF
+ * @default #FFFFFF
+ *
+ * @param TextBaselineOffset
+ * @text 文字基线偏移
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @min -20
+ * @max 20
+ * @desc 【】内文字垂直偏移（正数=下移，负数=上移），默认0
+ * @default 0
+ *
+ * @param BgBaselineOffset
+ * @text 背景基线偏移
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @min -20
+ * @max 20
+ * @desc 背景块垂直偏移（正数=下移，负数=上移），默认0
+ * @default 0
+ *
+ * @param --- 基础配置参数 ---
  * @default
  *
  * @param Actor Tag Settings
  * @text 角色标签配置
- * @parent --- Actor Settings ---
+ * @parent --- 基础配置参数 ---
  * @type struct<ActorSetting>[]
  * @desc 在这里注册角色的标签。
  * @default []
  *
- * @param --- Enemy Settings ---
- * @default
- *
  * @param Enemy Tag Settings
  * @text 敌人标签配置
- * @parent --- Enemy Settings ---
+ * @parent --- 基础配置参数 ---
  * @type struct<EnemySetting>[]
  * @desc 在这里注册敌人的标签。
  * @default []
  *
- * @param --- Weapon Settings ---
- * @default
- *
  * @param Weapon Tag Settings
  * @text 武器标签配置
- * @parent --- Weapon Settings ---
+ * @parent --- 基础配置参数 ---
  * @type struct<WeaponSetting>[]
  * @desc 在这里注册武器的标签。
  * @default []
  *
- * @param --- Armor Settings ---
- * @default
- *
  * @param Armor Tag Settings
  * @text 护甲标签配置
- * @parent --- Armor Settings ---
+ * @parent --- 基础配置参数 ---
  * @type struct<ArmorSetting>[]
  * @desc 在这里注册护甲的标签。
  * @default []
  *
  * @help
  * ============================================================================
- * 介绍
+ * 插件参数说明
  * ============================================================================
- * 这是一个标签系统的升级版 (v3.6)。
+ * 更新日志 (v3.61):
+ * - 新增背景描边功能：支持为【】标签背景添加自定义颜色的外边框。
+ * * 更新日志 (v3.60):
+ * - 核心技术升级：引入 Canvas Scale 缩放技术。
+ * - 突破限制：现在可以显示任意大小的字体（例如 8px, 6px），
+ * 即便浏览器内核强制最小字号为 12px，本插件也会通过缩放强制显示为小字号。
  *
- * 【更新说明】
- * 增加了内部逻辑，使插件能区分“角色自带标签”和“装备提供的标签”。
- * 这为窗口插件实现“装备标签排在最后且变色”提供了支持。
+ * 核心特性 (合并版)：
+ * * 1. 【完美间隙与背景】:
+ * - 继承了完美间隙版的圆角背景、对称扩展和外部间距逻辑。
+ * * 2. 【预加载字体隔离 (直绘版)】:
+ * - 强制使用 TagFontName 字体。
+ * - 彻底隔离全局 Bitmap&DrawTextEx 特效（无强制渐变、无描边）。
+ * * 3. 【正逆练自动切换】:
+ * - 角色每3-7场战斗自动切换正/逆练阶段。
+ * - Tier 2 标签会自动根据阶段激活“绑定状态”或“逆练绑定状态”。
  *
+ * ============================================================================
  */
 
 /*~struct~ActorSetting:
@@ -94,7 +205,7 @@
  *
  * @param Tags
  * @text 标签列表
- * @type struct<TagData>[]
+ * @type struct<TagDataEquip>[]
  * @desc 该武器拥有的标签集合
  * @default []
  */
@@ -109,7 +220,7 @@
  *
  * @param Tags
  * @text 标签列表
- * @type struct<TagData>[]
+ * @type struct<TagDataEquip>[]
  * @desc 该护甲拥有的标签集合
  * @default []
  */
@@ -126,53 +237,143 @@
  * @default 无描述
  *
  * @param Effect
- * @text 标签效果文本 (正练)
+ * @text 效果文本 (正练)
  * @type string
- * @desc 正练状态下显示的说明文本。
+ * @desc 正练状态下显示的说明文本。支持语法：【显示文字】[背景色ID][文字色ID]
  * @default 无效果
  *
  * @param Reverse Effect
- * @text 逆练效果文本 (Tier 2)
+ * @text 效果文本 (逆练)
  * @type string
- * @desc [Tier 2专属] 逆练状态下显示的说明文本。
- * @default 逆练效果
- *
- * @param State List
- * @text 绑定状态列表 (正练)
- * @type number[]
- * @desc 正练时生效的被动状态ID。
- * @default []
- *
- * @param Reverse State List
- * @text 逆练状态列表 (Tier 2)
- * @type number[]
- * @desc [Tier 2专属] 逆练时生效的被动状态ID。
- * @default []
+ * @desc 逆练状态下显示的说明文本。仅当Tier=2且处于逆练阶段时生效。
+ * @default 无效果
  *
  * @param Tier
  * @text 标签品级
  * @type number
  * @min 1
- * @max 3
- * @desc 1=普通, 2=可正逆切换, 3=史诗
+ * @max 5
+ * @desc 1=普通, 2=可正逆切换(修炼), 3=史诗, 4=装备, 5=标志
  * @default 1
  *
- * @param State ID
- * @text [兼容旧版] 单个ID
+ * @param State IDs
+ * @text 绑定状态 (正练)
+ * @type number[]
+ * @desc 当标签生效且处于正练阶段(或非Tier2)时，赋予角色的状态ID列表。
+ * @default []
+ *
+ * @param Reverse State IDs
+ * @text 绑定状态 (逆练)
+ * @type number[]
+ * @desc 当标签生效且处于逆练阶段(Tier=2)时，赋予角色的状态ID列表。
+ * @default []
+ */
+
+/*~struct~TagDataEquip:
+ * @param Name
+ * @text 标签名
+ * @type string
+ * @default 新标签
+ *
+ * @param Note
+ * @text 标签注释
+ * @type string
+ * @default 无描述
+ *
+ * @param Effect
+ * @text 效果文本 (正练)
+ * @type string
+ * @desc 正练状态下显示的说明文本。支持语法：【显示文字】[背景色ID][文字色ID]
+ * @default 无效果
+ *
+ * @param Reverse Effect
+ * @text 效果文本 (逆练)
+ * @type string
+ * @desc 逆练状态下显示的说明文本。仅当Tier=2且处于逆练阶段时生效。
+ * @default 无效果
+ *
+ * @param Tier
+ * @text 标签品级
  * @type number
- * @min 0
- * @default 0
+ * @min 1
+ * @max 5
+ * @desc 1=普通, 2=可正逆切换, 3=史诗, 4=装备, 5=标志
+ * @default 4
+ *
+ * @param State IDs
+ * @text 绑定状态 (正练)
+ * @type number[]
+ * @desc 当标签生效且处于正练阶段(或非Tier2)时，赋予角色的状态ID列表。
+ * @default []
+ *
+ * @param Reverse State IDs
+ * @text 绑定状态 (逆练)
+ * @type number[]
+ * @desc 当标签生效且处于逆练阶段(Tier=2)时，赋予角色的状态ID列表。
+ * @default []
  */
 
 var Imported = Imported || {};
 Imported.TagSystem = true;
 
 var TagSystem = TagSystem || {};
+TagSystem.Parameters = PluginManager.parameters('TagSystem');
+
+// 解析自定义视觉参数
+TagSystem.Params = {
+    fontSizeReduction: Number(TagSystem.Parameters['FontSizeReduction'] || 4),
+    tagFontName: TagSystem.Parameters['TagFontName'] || '微软雅黑',
+    bgHeightRatio: Number(TagSystem.Parameters['BgHeightRatio'] || 0.9),
+    bgWidthScale: Number(TagSystem.Parameters['BgWidthScale'] || 1.2),
+    bgBorderRadius: Number(TagSystem.Parameters['BgBorderRadius'] || 4),
+    bgHorizontalPadding: Number(TagSystem.Parameters['BgHorizontalPadding'] || 2),
+    bgBlockMargin: Number(TagSystem.Parameters['BgBlockMargin'] || 2),
+    // 解析透明度并转换为0-1
+    bgOpacity: Number(TagSystem.Parameters['BgOpacity'] === undefined ? 255 : TagSystem.Parameters['BgOpacity']) / 255,
+    // 解析描边参数
+    bgStrokeWidth: Number(TagSystem.Parameters['BgStrokeWidth'] || 0),
+    bgStrokeColor: String(TagSystem.Parameters['BgStrokeColor'] || '#FFFFFF'),
+    
+    textBaselineOffset: Number(TagSystem.Parameters['TextBaselineOffset'] || 0),
+    bgBaselineOffset: Number(TagSystem.Parameters['BgBaselineOffset'] || 0)
+};
+
+var $dataTags = $dataTags || {};
 
 (function() {
 
-    TagSystem.Parameters = PluginManager.parameters('TagSystem');
-    
+    // 扩展CanvasRenderingContext2D：绘制圆角矩形 (填充)
+    CanvasRenderingContext2D.prototype.fillRoundedRect = function(x, y, width, height, radius) {
+        this.beginPath();
+        this.moveTo(x + radius, y);
+        this.lineTo(x + width - radius, y);
+        this.quadraticCurveTo(x + width, y, x + width, y + radius);
+        this.lineTo(x + width, y + height - radius);
+        this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        this.lineTo(x + radius, y + height);
+        this.quadraticCurveTo(x, y + height, x, y + height - radius);
+        this.lineTo(x, y + radius);
+        this.quadraticCurveTo(x, y, x + radius, y);
+        this.closePath();
+        this.fill();
+    };
+
+    // 扩展CanvasRenderingContext2D：绘制圆角矩形 (描边) - 新增
+    CanvasRenderingContext2D.prototype.strokeRoundedRect = function(x, y, width, height, radius) {
+        this.beginPath();
+        this.moveTo(x + radius, y);
+        this.lineTo(x + width - radius, y);
+        this.quadraticCurveTo(x + width, y, x + width, y + radius);
+        this.lineTo(x + width, y + height - radius);
+        this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        this.lineTo(x + radius, y + height);
+        this.quadraticCurveTo(x, y + height, x, y + height - radius);
+        this.lineTo(x, y + radius);
+        this.quadraticCurveTo(x, y, x + radius, y);
+        this.closePath();
+        this.stroke();
+    };
+
     TagSystem.parseJson = function(str) {
         try {
             return JSON.parse(str);
@@ -181,46 +382,35 @@ var TagSystem = TagSystem || {};
         }
     };
 
-    TagSystem.parseTagList = function(jsonStr) {
+    TagSystem.parseTagList = function(jsonStr, defaultTier) {
         var list = TagSystem.parseJson(jsonStr);
         return list.map(function(tagStr) {
             var tagObj = TagSystem.parseJson(tagStr);
-            
-            var singleId = Number(tagObj['State ID'] || 0);
-            var posList = [];
-            try { posList = JSON.parse(tagObj['State List'] || '[]').map(Number); } catch (e) {}
-            if (singleId > 0) posList.push(singleId);
+            var dTier = defaultTier || 1;
 
-            var negList = [];
-            try { negList = JSON.parse(tagObj['Reverse State List'] || '[]').map(Number); } catch (e) {}
-            
             return {
                 name: tagObj.Name || "",
                 note: tagObj.Note || "",
-                effect: tagObj.Effect || "",               
+                effect: tagObj.Effect || "",
                 reverseEffect: tagObj['Reverse Effect'] || "", 
-                stateIds: posList,
-                reverseStateIds: negList,
-                tier: Number(tagObj.Tier || 1)
+                tier: Number(tagObj.Tier || dTier),
+                stateIds: TagSystem.parseJson(tagObj['State IDs'] || '[]').map(Number), 
+                reverseStateIds: TagSystem.parseJson(tagObj['Reverse State IDs'] || '[]').map(Number) 
             };
         });
     };
 
-    TagSystem.parseSettings = function(paramName, idParamName) {
+    TagSystem.parseSettings = function(paramName, idParamName, defaultTier) {
         var rawList = TagSystem.parseJson(TagSystem.Parameters[paramName] || '[]');
         var dataMap = {};
         
         rawList.forEach(function(settingStr) {
             var setting = TagSystem.parseJson(settingStr);
             var id = Number(setting[idParamName]);
-            var tags = TagSystem.parseTagList(setting.Tags || '[]');
+            var tags = TagSystem.parseTagList(setting.Tags || '[]', defaultTier);
             
             if (id > 0) {
-                if (dataMap[id]) {
-                    dataMap[id] = dataMap[id].concat(tags);
-                } else {
-                    dataMap[id] = tags;
-                }
+                dataMap[id] = tags;
             }
         });
         return dataMap;
@@ -233,26 +423,283 @@ var TagSystem = TagSystem || {};
     };
 
     TagSystem.loadTagData = function() {
+        $dataTags = $dataTags || {};
         $dataTags = {
-            actors: TagSystem.parseSettings('Actor Tag Settings', 'Actor ID'),
-            enemies: TagSystem.parseSettings('Enemy Tag Settings', 'Enemy ID'),
-            weapons: TagSystem.parseSettings('Weapon Tag Settings', 'Weapon ID'),
-            armors: TagSystem.parseSettings('Armor Tag Settings', 'Armor ID')
+            actors: TagSystem.parseSettings('Actor Tag Settings', 'Actor ID', 1),
+            enemies: TagSystem.parseSettings('Enemy Tag Settings', 'Enemy ID', 1),
+            weapons: TagSystem.parseSettings('Weapon Tag Settings', 'Weapon ID', 4),
+            armors: TagSystem.parseSettings('Armor Tag Settings', 'Armor ID', 4)
         };
     };
 
     //-----------------------------------------------------------------------------
-    // Game_Actor 扩展 - 战斗计数与相位切换
+    // 解析特殊样式文本
     //-----------------------------------------------------------------------------
+    TagSystem.parseStyledText = function(text) {
+        if (!text || text === '') return [{ type: 'text', content: text }];
+        
+        const result = [];
+        const regex = /【([^】]+?)】\[\s*(\d+)\s*\]\[\s*(\d+)\s*\]/g;
+        let lastIndex = 0;
+        let match;
 
+        while ((match = regex.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+                result.push({
+                    type: 'text',
+                    content: text.substring(lastIndex, match.index)
+                });
+            }
+
+            const content = match[1].trim();
+            const bgColorId = Number(match[2]) || 0;
+            const textColorId = Number(match[3]) || 0;
+
+            result.push({
+                type: 'styled',
+                content: content,
+                bgColorId: bgColorId,
+                textColorId: textColorId
+            });
+
+            lastIndex = regex.lastIndex;
+        }
+
+        if (lastIndex < text.length) {
+            result.push({
+                type: 'text',
+                content: text.substring(lastIndex)
+            });
+        }
+
+        return result;
+    };
+
+    //-----------------------------------------------------------------------------
+    // 核心绘制逻辑（修复：突破最小字号限制）
+    //-----------------------------------------------------------------------------
+    const _Window_Base_processNormalCharacter = Window_Base.prototype.processNormalCharacter;
+    Window_Base.prototype.processNormalCharacter = function(textState) {
+        if (textState.styledText && textState.styledIndex < textState.styledText.length) {
+            const styledItem = textState.styledText[textState.styledIndex];
+            if (styledItem.type === 'styled' && !textState.styledProcessing) {
+                this.drawStyledTextBlock(styledItem, textState);
+                textState.styledIndex++;
+                return;
+            }
+        }
+        _Window_Base_processNormalCharacter.call(this, textState);
+    };
+
+    Window_Base.prototype.drawStyledTextBlock = function(styledItem, textState) {
+        const content = styledItem.content;
+        const bgColorId = styledItem.bgColorId;
+        const textColorId = styledItem.textColorId;
+
+        // 1. 保存原生状态
+        const originalFontSize = this.contents.fontSize || 28;
+        const originalFontFace = this.contents.fontFace;
+        const originalPaintOpacity = this.contents.paintOpacity;
+        const originalOutlineWidth = this.contents.outlineWidth;
+        const originalOutlineColor = this.contents.outlineColor;
+        const originalShadow = this.contents.shadow;
+        const originalFillStyle = this.contents._context.fillStyle;
+        const originalStrokeStyle = this.contents._context.strokeStyle;
+        const originalShadowColor = this.contents._context.shadowColor;
+        const originalShadowBlur = this.contents._context.shadowBlur;
+        const originalShadowOffsetX = this.contents._context.shadowOffsetX;
+        const originalShadowOffsetY = this.contents._context.shadowOffsetY;
+        const originalTextBaseline = this.contents._context.textBaseline; 
+
+        // 2. 读取并计算目标字号
+        const fontSizeReduction = TagSystem.Params.fontSizeReduction;
+        const margin = TagSystem.Params.bgBlockMargin; 
+        
+        // 目标字号（比如14 - 10 = 4px）
+        let targetFontSize = originalFontSize - fontSizeReduction;
+        targetFontSize = Math.max(targetFontSize, 1); // 允许极小值
+
+        // --- 核心修复：突破最小字号限制 (Scale Approach) ---
+        var minBrowserFontSize = 12; // 大多数浏览器限制为12px
+        var renderFontSize = targetFontSize;
+        var scaleRatio = 1.0;
+
+        // 如果目标字号小于12，则强制渲染为12，然后缩小画布
+        if (targetFontSize < minBrowserFontSize) {
+            scaleRatio = targetFontSize / minBrowserFontSize; // 例如 8/12 = 0.66
+            renderFontSize = minBrowserFontSize; // 实际渲染字号设为12
+        }
+
+        try {
+            // 清理环境
+            this.contents.outlineWidth = 0;
+            this.contents.outlineColor = 'rgba(0,0,0,0)';
+            this.contents.shadow = false;
+            this.contents.outline = false;
+            
+            const ctx = this.contents._context;
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.strokeStyle = 'transparent';
+
+            // 3. 计算尺寸 (使用 renderFontSize 计算宽度，再乘以缩放比得到实际视觉宽度)
+            // 先设置渲染字号，以便 measureText 获得 12px 下的宽度
+            this.contents.fontFace = TagSystem.Params.tagFontName;
+            this.contents.fontSize = renderFontSize;
+            
+            var rawTextWidth = this.textWidth(content); // 这是 12px 时的宽度
+            var visualTextWidth = rawTextWidth * scaleRatio; // 这是 8px 时的视觉宽度
+
+            // 背景计算基于“视觉宽度”和“原始字号(originalFontSize)”
+            const baseBgHeight = originalFontSize * TagSystem.Params.bgHeightRatio;
+            const baseBgWidth = visualTextWidth * TagSystem.Params.bgWidthScale + TagSystem.Params.bgHorizontalPadding * 2;
+            const singleSideExpand = (baseBgWidth - visualTextWidth) / 2;
+            
+            const bgX = textState.x + margin;
+            const bgY = textState.y + TagSystem.Params.bgBaselineOffset + (this.lineHeight() - baseBgHeight) / 2;
+            const textX = bgX + singleSideExpand; // 文字的视觉起始点 X
+            
+            // 4. 绘制背景 (不需要缩放，按正常坐标绘制)
+            if (bgColorId > 0 && bgColorId <= 15) {
+                const bgColor = this.textColor(bgColorId);
+                ctx.save();
+                ctx.fillStyle = bgColor;
+                
+                // --- 应用透明度 ---
+                ctx.globalAlpha = TagSystem.Params.bgOpacity; 
+                
+                // 绘制填充
+                ctx.fillRoundedRect(bgX, bgY, baseBgWidth, baseBgHeight, TagSystem.Params.bgBorderRadius);
+                
+                // --- 绘制描边 (新增) ---
+                if (TagSystem.Params.bgStrokeWidth > 0) {
+                    // 重置Alpha为1，确保边框清晰（或您可以注释掉这行使其半透明）
+                    ctx.globalAlpha = 1.0; 
+                    ctx.lineWidth = TagSystem.Params.bgStrokeWidth;
+                    ctx.strokeStyle = TagSystem.Params.bgStrokeColor;
+                    ctx.strokeRoundedRect(bgX, bgY, baseBgWidth, baseBgHeight, TagSystem.Params.bgBorderRadius);
+                }
+
+                ctx.restore();
+                this.contents._dirty = true;
+            }
+
+            // 5. 绘制文字 (应用缩放)
+            ctx.save();
+            
+            var fontStyle = '';
+            if (this.contents.fontItalic) fontStyle += 'italic ';
+            if (this.contents.fontBold) fontStyle += 'bold ';
+            // 使用 renderFontSize (至少12px)
+            ctx.font = fontStyle + renderFontSize + 'px "' + TagSystem.Params.tagFontName + '"';
+            ctx.fillStyle = this.textColor(textColorId);
+            ctx.textBaseline = 'middle';
+            
+            // 计算垂直居中位置
+            const lh = this.lineHeight();
+            const ty = textState.y + lh / 2 + TagSystem.Params.textBaselineOffset;
+
+            // 应用缩放
+            // 注意：ctx.scale 会缩放坐标系，所以绘制坐标要除以缩放比
+            if (scaleRatio !== 1.0) {
+                ctx.scale(scaleRatio, scaleRatio);
+                ctx.fillText(content, textX / scaleRatio, ty / scaleRatio);
+            } else {
+                ctx.fillText(content, textX, ty);
+            }
+            
+            ctx.restore();
+            
+            this.contents._dirty = true;
+
+            // 6. 推进坐标 (使用背景块的宽度)
+            textState.x = bgX + baseBgWidth + margin;
+
+        } finally {
+            // 恢复所有状态
+            this.contents.fontSize = originalFontSize;
+            this.contents.fontFace = originalFontFace;
+            this.contents.paintOpacity = originalPaintOpacity;
+            this.contents.outlineWidth = originalOutlineWidth;
+            this.contents.outlineColor = originalOutlineColor;
+            if (originalShadow !== undefined) this.contents.shadow = originalShadow;
+            this.contents.outline = true;
+            
+            this.contents._context.fillStyle = originalFillStyle;
+            this.contents._context.strokeStyle = originalStrokeStyle;
+            this.contents._context.shadowColor = originalShadowColor;
+            this.contents._context.shadowBlur = originalShadowBlur;
+            this.contents._context.shadowOffsetX = originalShadowOffsetX;
+            this.contents._context.shadowOffsetY = originalShadowOffsetY;
+            this.contents._context.textBaseline = originalTextBaseline; 
+            
+            this.changeTextColor(this.normalColor());
+        }
+    };
+
+    //-----------------------------------------------------------------------------
+    // 重写drawText以支持混合绘制
+    //-----------------------------------------------------------------------------
+    const _Window_Base_drawText = Window_Base.prototype.drawText;
+    Window_Base.prototype.drawText = function(text, x, y, width, align) {
+        if (!text || text === '') return _Window_Base_drawText.call(this, text, x, y, width, align);
+
+        const styledText = TagSystem.parseStyledText(text);
+        if (styledText.length === 1 && styledText[0].type === 'text') {
+            return _Window_Base_drawText.call(this, text, x, y, width, align);
+        }
+
+        const textState = {
+            x: x,
+            y: y,
+            width: width,
+            height: this.lineHeight(),
+            align: align || 'left',
+            styledText: styledText,
+            styledIndex: 0,
+            styledProcessing: false
+        };
+
+        while (textState.styledIndex < styledText.length) {
+            const item = styledText[textState.styledIndex];
+            if (item.type === 'text') {
+                const originalOutline = this.contents.outline;
+                const originalTextColor = this.contents.textColor; 
+                const originalFontFace = this.contents.fontFace;
+                
+                this.contents.outline = true;
+                this.contents.fontFace = originalFontFace;
+                this.changeTextColor(this.normalColor());
+                
+                const remainingWidth = textState.width - (textState.x - x);
+                _Window_Base_drawText.call(this, item.content, textState.x, textState.y, remainingWidth, textState.align);
+                
+                textState.x += this.textWidth(item.content);
+                textState.styledIndex++;
+                
+                this.contents.outline = originalOutline;
+            } else {
+                this.processNormalCharacter(textState);
+            }
+        }
+    };
+
+    //-----------------------------------------------------------------------------
+    // 角色/敌人标签与修炼逻辑
+    //-----------------------------------------------------------------------------
+    
     var _Game_Actor_setup = Game_Actor.prototype.setup;
     Game_Actor.prototype.setup = function(actorId) {
         _Game_Actor_setup.call(this, actorId);
-        this.initTagCultivation();
+        if (this.actorId() > 0 && $dataActors[this.actorId()]) {
+            this.initTagCultivation();
+        }
     };
 
     Game_Actor.prototype.initTagCultivation = function() {
-        this._tagPhase = 0; 
+        this._tagPhase = 0; // 0 = 正练, 1 = 逆练
         this._tagBattleCount = 0;
         this._tagBattleLimit = this.generateTagBattleLimit();
     };
@@ -272,97 +719,78 @@ var TagSystem = TagSystem || {};
     };
 
     Game_Actor.prototype.updateTagCultivation = function() {
-        this._tagBattleCount = (this._tagBattleCount || 0) + 1;
+        if (this._tagBattleLimit === undefined) this.initTagCultivation();
+
+        this._tagBattleCount++;
         if (this._tagBattleCount >= this._tagBattleLimit) {
-            this._tagPhase = (this._tagPhase === 0) ? 1 : 0;
             this._tagBattleCount = 0;
             this._tagBattleLimit = this.generateTagBattleLimit();
+            this._tagPhase = (this._tagPhase === 0) ? 1 : 0;
             this.refresh();
         }
     };
 
-    //-----------------------------------------------------------------------------
-    // Game_BattlerBase / Game_Actor / Game_Enemy 扩展
-    //-----------------------------------------------------------------------------
-    
-    Game_BattlerBase.prototype.getTags = function() {
-        return [];
-    };
-
-    Game_BattlerBase.prototype.getTagPhase = function() {
-        return 0; 
-    };
-
-    // 【修改】标记装备标签
     Game_Actor.prototype.getTags = function() {
         if (!$dataTags) return [];
         
         var tags = [];
-        
-        // 1. 角色标签 (非装备)
         var actorId = this.actorId();
         if ($dataTags.actors && $dataTags.actors[actorId]) {
-            // 复制对象并标记 isEquip = false
-            var aTags = $dataTags.actors[actorId].map(function(t) {
-                var nt = Object.assign({}, t);
-                nt.isEquip = false;
-                return nt;
-            });
-            tags = tags.concat(aTags);
+            const actorTags = $dataTags.actors[actorId].map(tag => ({
+                ...tag,
+                isEquip: false
+            }));
+            tags = tags.concat(actorTags);
         }
-        
-        // 2. 装备标签
-        var equips = this.equips();
-        for (var i = 0; i < equips.length; i++) {
-            var item = equips[i];
-            if (!item) continue;
-            
-            var eTags = [];
-            if (DataManager.isWeapon(item)) {
-                if ($dataTags.weapons && $dataTags.weapons[item.id]) {
-                    eTags = $dataTags.weapons[item.id];
-                }
-            } else if (DataManager.isArmor(item)) {
-                if ($dataTags.armors && $dataTags.armors[item.id]) {
-                    eTags = $dataTags.armors[item.id];
-                }
+
+        this.equips().forEach(equip => {
+            if (!equip || typeof equip !== 'object' || !equip.isWeapon || !equip.isArmor) {
+                return;
             }
             
-            // 复制对象并标记 isEquip = true
-            if (eTags.length > 0) {
-                var markedTags = eTags.map(function(t) {
-                    var nt = Object.assign({}, t);
-                    nt.isEquip = true; 
-                    return nt;
-                });
-                tags = tags.concat(markedTags);
+            let equipTags = [];
+            if (equip.isWeapon()) {
+                equipTags = $dataTags.weapons[equip.id] || [];
+            } else if (equip.isArmor()) {
+                equipTags = $dataTags.armors[equip.id] || [];
             }
-        }
-        
+            
+            if (equipTags.length > 0) {
+                const taggedEquipTags = equipTags.map(tag => ({
+                    ...tag,
+                    isEquip: true
+                }));
+                tags = tags.concat(taggedEquipTags);
+            }
+        });
+
         return tags;
     };
 
     Game_Enemy.prototype.getTags = function() {
-        if (!$dataTags || !$dataTags.enemies) return [];
-        var enemyId = this.enemyId();
+        if (!$dataTags) return [];
+        const enemyId = this.enemyId();
         return $dataTags.enemies[enemyId] || [];
     };
 
-    //-----------------------------------------------------------------------------
-    // 状态与特征逻辑
-    //-----------------------------------------------------------------------------
-
     Game_BattlerBase.prototype.getTagStates = function() {
-        var tags = this.getTags(); 
         var states = [];
-        var currentPhase = this.getTagPhase(); 
+        if (!this.isActor()) return states;
+        if (typeof this.getTags !== 'function') return states;
+
+        var tags = this.getTags();
+        var currentPhase = this.getTagPhase();
 
         for (var i = 0; i < tags.length; i++) {
             var tag = tags[i];
             var targetIds = [];
 
-            if (tag.tier === 2 && currentPhase === 1) {
-                targetIds = tag.reverseStateIds;
+            if (tag.tier === 2) {
+                if (currentPhase === 1) {
+                    targetIds = tag.reverseStateIds; 
+                } else {
+                    targetIds = tag.stateIds;        
+                }
             } else {
                 targetIds = tag.stateIds;
             }
@@ -379,33 +807,24 @@ var TagSystem = TagSystem || {};
         return states;
     };
 
-    Game_BattlerBase.prototype.hasTagState = function(stateId) {
-        var tags = this.getTags();
-        var currentPhase = this.getTagPhase();
-
-        for (var i = 0; i < tags.length; i++) {
-            var tag = tags[i];
-            var targetIds = [];
-            if (tag.tier === 2 && currentPhase === 1) {
-                targetIds = tag.reverseStateIds;
-            } else {
-                targetIds = tag.stateIds;
-            }
-            if (targetIds && targetIds.indexOf(stateId) > -1) {
-                return true;
-            }
-        }
-        return false;
-    };
-
     var _Game_BattlerBase_traitObjects = Game_BattlerBase.prototype.traitObjects;
     Game_BattlerBase.prototype.traitObjects = function() {
         var objects = _Game_BattlerBase_traitObjects.call(this);
         var tagStates = this.getTagStates();
-        for (var i = 0; i < tagStates.length; i++) {
-            objects.push(tagStates[i]);
+        if (tagStates && tagStates.length > 0) {
+            objects = objects.concat(tagStates);
         }
         return objects;
+    };
+
+    Game_BattlerBase.prototype.hasTagState = function(stateId) {
+        var objects = this.traitObjects();
+        for (var i = 0; i < objects.length; i++) {
+            if (objects[i].id === stateId && objects[i].iconIndex !== undefined) { 
+                return true; 
+            }
+        }
+        return false;
     };
 
 })();
