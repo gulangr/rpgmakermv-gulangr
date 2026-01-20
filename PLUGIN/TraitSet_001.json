@@ -1,0 +1,36 @@
+[
+  {
+    "id": "mklivahrkqrgsy3lrfl",
+    "type": "folder",
+    "name": "成长类",
+    "children": [
+      {
+        "id": "mklivbkqeehrsqnkzb9",
+        "type": "set",
+        "name": "神悟",
+        "traits": [
+          {
+            "isCustom": false,
+            "code": 23,
+            "dataId": 9,
+            "value": 1.2
+          },
+          {
+            "isCustom": true,
+            "name": "升级额外增加随机属性",
+            "code": "<Custom Level Up Effect>\n  // 1. 随机抽取 0-7 的数字 (对应8个基本属性)\n  var paramId = Math.floor(Math.random() * 8);\n  var value = 1;\n  \n  // 2. 如果随机到 HP (ID 0)，增加 10 点\n  if (paramId === 0) {\n    value = 10;\n  // 3. 如果随机到 MP (ID 1)，增加 4 点\n  } else if (paramId === 1) {\n    value = 4;\n  }\n  \n  // 4. 发放奖励：给角色增加对应的属性值\n  user.addParam(paramId, value);\n</Custom Level Up Effect>",
+            "note": "升级时随机增加一项属性 对应增加值:HP是10点 MP是4点 其他属性1点"
+          },
+          {
+            "isCustom": true,
+            "name": "加攻击",
+            "code": "<atk Plus: +30>",
+            "note": ""
+          }
+        ],
+        "note": "天生神悟，聪慧异常。\n经验获取+20%，且升级时额外获得随机属性奖励。\"不仅练得比你快，长得还比你帅\""
+      }
+    ],
+    "isOpen": true
+  }
+]
