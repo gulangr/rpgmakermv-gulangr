@@ -108,14 +108,15 @@ Gemini.TagPatch = Gemini.TagPatch || {};
                 if (node.type === 'folder') {
                     if (node.children) traverse(node.children);
                 } else if (node.type === 'set') {
-                    // 构建特性集对象
+                    // 构建特性集对象 - 补全 _isGeminiSet 标记
                     var traitObj = {
                         id: node.id,
                         name: node.name,
                         note: "", // 核心：存储所有代码
                         traits: [],
                         plusParams: [0,0,0,0,0,0,0,0],
-                        rateParams: [1,1,1,1,1,1,1,1]
+                        rateParams: [1,1,1,1,1,1,1,1],
+                        _isGeminiSet: true // 关键修复：标记为Gemini特性集，让paramPlus识别
                     };
                     
                     // 收集代码与特性
@@ -276,31 +277,51 @@ Gemini.TagPatch = Gemini.TagPatch || {};
         if (!window.$dataTraitSets) return objects;
 
         // 仅处理 Actor (因为 Enemy 的 Tag 结构不同，且通常不需要复杂注入)
-        if (this.isActor() && this.getTags) {
-            var tags = this.getTags(); 
-            var currentPhase = (typeof this.getTagPhase === 'function') ? this.getTagPhase() : 0;
-            
-            for (var i = 0; i < tags.length; i++) {
-                var tag = tags[i];
-                var targetIds = [];
+        if (this.isActor()) {
+            // 兜底逻辑：优先通过 TagSystem 标签匹配，失败则从角色备注反向匹配
+            var hasTagMatched = false;
+            if (this.getTags) {
+                var tags = this.getTags(); 
+                var currentPhase = (typeof this.getTagPhase === 'function') ? this.getTagPhase() : 0;
                 
-                // 正逆练判定
-                if (tag.tier === 2) {
-                    if (currentPhase === 1) targetIds = tag.reverseStateIds; 
-                    else targetIds = tag.stateIds;        
-                } else {
-                    targetIds = tag.stateIds;
-                }
+                for (var i = 0; i < tags.length; i++) {
+                    var tag = tags[i];
+                    var targetIds = [];
+                    
+                    // 正逆练判定
+                    if (tag.tier === 2) {
+                        if (currentPhase === 1) targetIds = tag.reverseStateIds; 
+                        else targetIds = tag.stateIds;        
+                    } else {
+                        targetIds = tag.stateIds;
+                    }
 
-                if (targetIds && targetIds.length > 0) {
-                    for (var j = 0; j < targetIds.length; j++) {
-                        var idVal = String(targetIds[j]);
-                        if (idVal.trim().startsWith("w")) {
-                            var setName = idVal.trim().substring(1).trim();
-                            var traitSet = window.$dataTraitSets[setName];
-                            if (traitSet) objects.push(traitSet);
+                    if (targetIds && targetIds.length > 0) {
+                        for (var j = 0; j < targetIds.length; j++) {
+                            var idVal = String(targetIds[j]);
+                            if (idVal.trim().startsWith("w")) {
+                                var setName = idVal.trim().substring(1).trim();
+                                var traitSet = window.$dataTraitSets[setName];
+                                if (traitSet) {
+                                    objects.push(traitSet);
+                                    hasTagMatched = true;
+                                }
+                            }
                         }
                     }
+                }
+            }
+
+            // 兜底：如果标签匹配失败，从角色备注中匹配特性集名称
+            if (!hasTagMatched) {
+                var actor = $dataActors[this.actorId()];
+                if (actor && actor.note) {
+                    Object.values(window.$dataTraitSets).forEach(function(traitSet) {
+                        // 匹配特性集名称/备注特征，避免重复添加
+                        if (actor.note.includes(traitSet.note.trim()) && !objects.includes(traitSet)) {
+                            objects.push(traitSet);
+                        }
+                    });
                 }
             }
         }
@@ -314,7 +335,8 @@ Gemini.TagPatch = Gemini.TagPatch || {};
         if (this.isActor()) {
             var traits = this.traitObjects();
             for (var i = 0; i < traits.length; i++) {
-                if (traits[i]._isGeminiSet && traits[i].plusParams) {
+                // 兼容标记：即使 _isGeminiSet 缺失，也读取 plusParams (双重保障)
+                if ((traits[i]._isGeminiSet || traits[i].plusParams) && traits[i].plusParams) {
                     value += traits[i].plusParams[paramId];
                 }
             }

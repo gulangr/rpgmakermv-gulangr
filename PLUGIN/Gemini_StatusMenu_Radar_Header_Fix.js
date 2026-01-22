@@ -1,5 +1,5 @@
 /*:
- * @plugindesc [8维雷达 v5.4] 视觉上限修正 + 自定义达标颜色
+ * @plugindesc [8维雷达 v5.5] 视觉上限修正 + 自定义达标颜色 + 硬上限提示
  * @author Gemini
  *
  * @param --- 核心布局 ---
@@ -81,19 +81,37 @@
  * @type number
  * @default 13
  *
+ * @param --- 颜色提示设置 ---
+ *
  * @param Alert Text Color
- * @text 达标提示颜色
- * @desc 属性达到软上限时的文字颜色索引。默认25(红色)。
+ * @text 软上限提示颜色
+ * @desc 属性达到软上限(章节肉体限制)时的文字颜色索引。默认25(红色)。
  * @type number
  * @default 25
  *
+ * @param Hard Cap Text Color
+ * @text 硬上限提示颜色
+ * @desc 属性达到硬上限(全局最终封顶)时的文字颜色索引。默认14(黄色)。
+ * @type number
+ * @default 14
+ *
+ * @param Both Cap Text Color
+ * @text 双重上限提示颜色
+ * @desc 同时达到软上限和硬上限时的文字颜色索引。默认31(紫色)。
+ * @type number
+ * @default 31
+ *
  * @help
  * ============================================================================
- * 更新说明 v5.4
+ * 更新说明 v5.5
  * ============================================================================
- * 1. 新增参数 [达标提示颜色]：
- * 现在您可以自定义属性达到软上限时文字显示的颜色。
- * (依赖 Gemini_ExcelStatsLink.js 提供判断逻辑)
+ * 1. 新增参数 [硬上限提示颜色] (默认14 黄色)
+ * 2. 新增参数 [双重上限提示颜色] (默认31 紫色)
+ * * 颜色判断优先级：
+ * 双重上限 (紫色) > 硬上限 (黄色) > 软上限 (红色) > 未达标 (系统色)
+ *
+ * - 软上限判断依赖: Gemini_ExcelStatsLink.js
+ * - 硬上限判断依赖: Gemini_LimitBonusPatch.js (或系统 paramMax)
  */
 
 (function() {
@@ -120,6 +138,8 @@
     
     // 新增：读取自定义颜色参数
     var alertTextColor = Number(params['Alert Text Color'] || 25);
+    var hardCapTextColor = Number(params['Hard Cap Text Color'] || 14);
+    var bothCapTextColor = Number(params['Both Cap Text Color'] || 31);
 
     // ========================================================================
     // 窗口创建与布局
@@ -334,15 +354,28 @@
 
             var ty = ly - (this.lineHeight() / 2);
 
-            // --- 核心修改：检测是否达到软上限 ---
-            var isCapped = false;
-            // 确保函数存在（v1.7 提供了这个函数）
+            // --- 核心修改：检测上限状态 ---
+            var isSoftCapped = false;
+            // 1. 检测软上限 (是否达到Excel设定的章节肉体上限)
             if (this._actor && typeof this._actor.isParamReachedChapterCap === 'function') {
-                isCapped = this._actor.isParamReachedChapterCap(pId);
+                isSoftCapped = this._actor.isParamReachedChapterCap(pId);
             }
 
-            if (isCapped) {
-                this.changeTextColor(this.textColor(alertTextColor)); // 使用参数颜色
+            var isHardCapped = false;
+            // 2. 检测硬上限 (当前值是否达到paramMax封顶值)
+            // Gemini_LimitBonusPatch 会重写 paramMax 为全局硬上限
+            if (this._actor) {
+                // 使用 >= 判断，通常数值会被 clamp 到 max，所以是相等的
+                isHardCapped = (this._actor.param(pId) >= this._actor.paramMax(pId));
+            }
+
+            // 3. 颜色应用逻辑 (优先级：双重 > 硬 > 软 > 无)
+            if (isSoftCapped && isHardCapped) {
+                this.changeTextColor(this.textColor(bothCapTextColor)); // 双重上限(紫)
+            } else if (isHardCapped) {
+                this.changeTextColor(this.textColor(hardCapTextColor)); // 硬上限(黄)
+            } else if (isSoftCapped) {
+                this.changeTextColor(this.textColor(alertTextColor));   // 软上限(红)
             } else {
                 this.changeTextColor(this.systemColor());
             }

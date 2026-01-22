@@ -1,5 +1,5 @@
 /*:
- * @plugindesc (v3.61 边框增强版) 标签系统 - 完美间隙+字体隔离+强制缩放+背景边框
+ * @plugindesc (v3.63 修复版) 标签系统 - 完美间隙+字体隔离+强制缩放+背景边框
  * @author Custom & 适配修改 & Gemini优化
  *
  * @param --- 视觉自定义参数 ---
@@ -145,6 +145,13 @@
  * ============================================================================
  * 插件参数说明
  * ============================================================================
+ * 更新日志 (v3.63):
+ * - 修复：首次打开状态菜单时字体无法加载的问题（增加字体预加载逻辑）。
+ *
+ * 更新日志 (v3.62):
+ * - 修复：Game_Actor.prototype.getTags 中判断装备类型的逻辑错误，
+ * 解决了武器和护甲标签无法显示的问题。
+ *
  * 更新日志 (v3.61):
  * - 新增背景描边功能：支持为【】标签背景添加自定义颜色的外边框。
  * * 更新日志 (v3.60):
@@ -730,36 +737,48 @@ var $dataTags = $dataTags || {};
         }
     };
 
+    // [Fix] 修复武器/装备标签读取逻辑
     Game_Actor.prototype.getTags = function() {
         if (!$dataTags) return [];
         
         var tags = [];
         var actorId = this.actorId();
+        
+        // 1. 获取角色自身标签
         if ($dataTags.actors && $dataTags.actors[actorId]) {
-            const actorTags = $dataTags.actors[actorId].map(tag => ({
-                ...tag,
-                isEquip: false
-            }));
+            // 使用 map 浅拷贝对象，防止污染源数据
+            const actorTags = $dataTags.actors[actorId].map(function(tag) {
+                var newTag = JsonEx.makeDeepCopy(tag);
+                newTag.isEquip = false;
+                return newTag;
+            });
             tags = tags.concat(actorTags);
         }
 
-        this.equips().forEach(equip => {
-            if (!equip || typeof equip !== 'object' || !equip.isWeapon || !equip.isArmor) {
-                return;
-            }
+        // 2. 获取装备标签 (修复版)
+        this.equips().forEach(function(equip) {
+            // 如果装备为空，跳过
+            if (!equip) return;
             
-            let equipTags = [];
-            if (equip.isWeapon()) {
-                equipTags = $dataTags.weapons[equip.id] || [];
-            } else if (equip.isArmor()) {
-                equipTags = $dataTags.armors[equip.id] || [];
+            var equipTags = [];
+            
+            // 使用 DataManager 正确判断类型
+            if (DataManager.isWeapon(equip)) {
+                if ($dataTags.weapons && $dataTags.weapons[equip.id]) {
+                    equipTags = $dataTags.weapons[equip.id];
+                }
+            } else if (DataManager.isArmor(equip)) {
+                if ($dataTags.armors && $dataTags.armors[equip.id]) {
+                    equipTags = $dataTags.armors[equip.id];
+                }
             }
             
             if (equipTags.length > 0) {
-                const taggedEquipTags = equipTags.map(tag => ({
-                    ...tag,
-                    isEquip: true
-                }));
+                var taggedEquipTags = equipTags.map(function(tag) {
+                    var newTag = JsonEx.makeDeepCopy(tag);
+                    newTag.isEquip = true; // 标记为装备提供的标签
+                    return newTag;
+                });
                 tags = tags.concat(taggedEquipTags);
             }
         });
@@ -825,6 +844,45 @@ var $dataTags = $dataTags || {};
             }
         }
         return false;
+    };
+
+    // ============================================================================
+    // 修复：字体预加载逻辑 (Fix for Font Loading Issue)
+    // ============================================================================
+    // 在游戏启动时，强制创建一个临时的 Bitmap 并绘制一次该字体，
+    // 以强迫浏览器立即加载字体文件。这解决了首次打开菜单字体不显示的问题。
+    // ============================================================================
+
+    TagSystem.preloadFont = function() {
+        if (this._fontPreloaded) return;
+        var fontName = TagSystem.Params.tagFontName;
+        if (!fontName) return;
+
+        // 方法 1: 尝试使用现代浏览器 API (可选)
+        if (window.document && window.document.fonts && window.document.fonts.load) {
+            try {
+                window.document.fonts.load("20px " + fontName);
+            } catch (e) {
+                // Ignore
+            }
+        }
+
+        // 方法 2: 暴力绘制法 (最可靠)
+        // 创建一个极小的 Bitmap，设置字体并绘制文字，触发浏览器加载机制
+        var tempBitmap = new Bitmap(100, 100);
+        tempBitmap.fontFace = fontName;
+        tempBitmap.drawText("Preload", 0, 0, 100, 30);
+        
+        // 标记已执行
+        this._fontPreloaded = true;
+        // console.log("TagSystem: Font '" + fontName + "' preloading triggered.");
+    };
+
+    // 挂载到 Scene_Boot (游戏启动场景)
+    var _Scene_Boot_create = Scene_Boot.prototype.create;
+    Scene_Boot.prototype.create = function() {
+        _Scene_Boot_create.call(this);
+        TagSystem.preloadFont();
     };
 
 })();
