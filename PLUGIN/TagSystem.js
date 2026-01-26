@@ -1,5 +1,5 @@
 /*:
- * @plugindesc (v3.63 修复版) 标签系统 - 完美间隙+字体隔离+强制缩放+背景边框
+ * @plugindesc (v3.77 高度自定义版) 标签系统 - 完美间隙+字体隔离+强制缩放+背景边框+剑标切换
  * @author Custom & 适配修改 & Gemini优化
  *
  * @param --- 视觉自定义参数 ---
@@ -20,6 +20,32 @@
  * @type string
  * @desc 填写字体名称（需与MV编辑器「数据库→系统→字体」一致，如：微软雅黑/Meiryo）
  * @default 微软雅黑
+ *
+ * @param TagNameFontSize
+ * @text 标签名文字大小
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @min 12
+ * @desc 状态界面上方标签名称的字号大小。默认 24。
+ * @default 24
+ *
+ * @param TagNameIconScale
+ * @text 标签名图标缩放
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @decimals 2
+ * @min 0.1
+ * @desc 标签名称中插入图标时的缩放比例。默认 1.0。
+ * @default 1.0
+ *
+ * @param TagNameIconOffsetY
+ * @text 标签名图标Y轴偏移
+ * @parent --- 视觉自定义参数 ---
+ * @type number
+ * @min -50
+ * @max 50
+ * @desc 标签名称中图标的垂直偏移量（正数下移，负数上移）。默认 0。
+ * @default 0
  *
  * @param BgHeightRatio
  * @text 背景高度比例
@@ -109,6 +135,56 @@
  * @max 20
  * @desc 背景块垂直偏移（正数=下移，负数=上移），默认0
  * @default 0
+ * * @param --- 剑标UI设置 ---
+ * @default
+ * * @param Show Click Zone
+ * @text 显示矩形判定区
+ * @parent --- 剑标UI设置 ---
+ * @type boolean
+ * @on 显示
+ * @off 隐藏
+ * @desc 是否用红色半透明方框显示剑标切换箭头的点击判定区域（调试用）。
+ * @default false
+ * * @param Click Zone Width
+ * @text 判定区/箭头宽度
+ * @parent --- 剑标UI设置 ---
+ * @type number
+ * @min 10
+ * @max 200
+ * @desc 左右切换箭头及其点击判定区域的宽度（像素）。默认 40。
+ * @default 40
+ * * @param Click Zone Height
+ * @text 判定区/箭头高度
+ * @parent --- 剑标UI设置 ---
+ * @type number
+ * @min 0
+ * @max 200
+ * @desc 判定区域的高度。设为 0 则自动填满整个格子高度。
+ * @default 0
+ * * @param Left Arrow Offset X
+ * @text 左箭头 X轴偏移
+ * @parent --- 剑标UI设置 ---
+ * @type number
+ * @min -100
+ * @max 100
+ * @desc 左侧箭头的横向位置调整。正数=向右(向内)，负数=向左(向外)。
+ * @default 0
+ * * @param Right Arrow Offset X
+ * @text 右箭头 X轴偏移
+ * @parent --- 剑标UI设置 ---
+ * @type number
+ * @min -100
+ * @max 100
+ * @desc 右侧箭头的横向位置调整。正数=向左(向内)，负数=向右(向外)。
+ * @default 0
+ * * @param Arrow Offset Y
+ * @text 箭头统一 Y轴偏移
+ * @parent --- 剑标UI设置 ---
+ * @type number
+ * @min -100
+ * @max 100
+ * @desc 左右箭头的纵向位置调整。正数=向下，负数=向上。
+ * @default 0
  *
  * @param --- 基础配置参数 ---
  * @default
@@ -141,33 +217,47 @@
  * @desc 在这里注册护甲的标签。
  * @default []
  *
+ * @param Sword Mark Tag Settings
+ * @text 剑标标签配置
+ * @parent --- 基础配置参数 ---
+ * @type struct<SwordMarkSetting>[]
+ * @desc 在这里注册剑标(名字后图标)对应的标签集合。
+ * @default []
+ *
  * @help
  * ============================================================================
  * 插件参数说明
  * ============================================================================
- * 更新日志 (v3.63):
- * - 修复：首次打开状态菜单时字体无法加载的问题（增加字体预加载逻辑）。
+ * 更新日志 (v3.77 + Patch):
+ * - 合并：从旧版移植了 [标签名文字大小]、[标签名图标缩放] 和 [Y轴偏移] 参数。
  *
- * 更新日志 (v3.62):
- * - 修复：Game_Actor.prototype.getTags 中判断装备类型的逻辑错误，
- * 解决了武器和护甲标签无法显示的问题。
+ * 更新日志 (v3.77):
+ * - 新增：[判定区/箭头高度] 参数。设为 0 时自动使用格子高度。
+ * - 优化：自定义高度时，默认在格子内垂直居中。
+ * - 修复：剑标点击判定区偏移问题。现在红色判定区与实际点击区域完全一致。
  *
- * 更新日志 (v3.61):
- * - 新增背景描边功能：支持为【】标签背景添加自定义颜色的外边框。
- * * 更新日志 (v3.60):
- * - 核心技术升级：引入 Canvas Scale 缩放技术。
- * - 突破限制：现在可以显示任意大小的字体（例如 8px, 6px），
- * 即便浏览器内核强制最小字号为 12px，本插件也会通过缩放强制显示为小字号。
+ * 更新日志 (v3.76):
+ * - 修复：< > 符号之前因为参数传递错误导致默认左对齐（看起来不对称）。
+ * 现在强制使用 'center' 绝对居中，确保左右对称。
  *
- * 核心特性 (合并版)：
- * * 1. 【完美间隙与背景】:
- * - 继承了完美间隙版的圆角背景、对称扩展和外部间距逻辑。
- * * 2. 【预加载字体隔离 (直绘版)】:
- * - 强制使用 TagFontName 字体。
- * - 彻底隔离全局 Bitmap&DrawTextEx 特效（无强制渐变、无描边）。
- * * 3. 【正逆练自动切换】:
- * - 角色每3-7场战斗自动切换正/逆练阶段。
- * - Tier 2 标签会自动根据阶段激活“绑定状态”或“逆练绑定状态”。
+ * 更新日志 (v3.75):
+ * - 优化：将左右箭头的X轴偏移量分开设置，方便微调。
+ *
+ * 更新日志 (v3.74):
+ * - 新增：[剑标UI设置] 参数组。
+ * - 功能：可自定义 < > 切换箭头的点击区域大小、X/Y 偏移位置。
+ * - 调试：可开启“显示矩形判定区”以直观查看点击热区。
+ *
+ * 更新日志 (v3.72):
+ * - 暴力修复：直接覆盖实例方法 (Direct Instance Override)，无视所有插件冲突。
+ *
+ * 更新日志 (v3.65):
+ * - 优化：剑标 (Tier 5) 标签现在会正确排序在 装备 (Tier 4) 标签之后。
+ *
+ * 更新日志 (v3.64):
+ * - 新增：剑标 (Sword Mark) 标签支持。
+ * - 交互：当剑标包含多个标签时，状态界面会显示「<」和「>」切换按钮，
+ * 点击可切换当前生效的标签及状态。
  *
  * ============================================================================
  */
@@ -229,6 +319,21 @@
  * @text 标签列表
  * @type struct<TagDataEquip>[]
  * @desc 该护甲拥有的标签集合
+ * @default []
+ */
+
+/*~struct~SwordMarkSetting:
+ * @param Sword Mark ID
+ * @text 剑标ID
+ * @type number
+ * @min 1
+ * @desc 对应 DrawIconAfterName 中的图标ID
+ * @default 1
+ *
+ * @param Tags
+ * @text 标签列表
+ * @type struct<TagDataSword>[]
+ * @desc 该剑标拥有的标签集合（可切换）
  * @default []
  */
 
@@ -320,6 +425,50 @@
  * @default []
  */
 
+/*~struct~TagDataSword:
+ * @param Name
+ * @text 标签名
+ * @type string
+ * @default 新标签
+ *
+ * @param Note
+ * @text 标签注释
+ * @type string
+ * @default 无描述
+ *
+ * @param Effect
+ * @text 效果文本 (正练)
+ * @type string
+ * @desc 正练状态下显示的说明文本。支持语法：【显示文字】[背景色ID][文字色ID]
+ * @default 无效果
+ *
+ * @param Reverse Effect
+ * @text 效果文本 (逆练)
+ * @type string
+ * @desc 逆练状态下显示的说明文本。仅当Tier=2且处于逆练阶段时生效。
+ * @default 无效果
+ *
+ * @param Tier
+ * @text 标签品级
+ * @type number
+ * @min 1
+ * @max 5
+ * @desc 1=普通, 2=可正逆切换, 3=史诗, 4=装备, 5=标志
+ * @default 5
+ *
+ * @param State IDs
+ * @text 绑定状态 (正练)
+ * @type number[]
+ * @desc 当标签生效且处于正练阶段(或非Tier2)时，赋予角色的状态ID列表。
+ * @default []
+ *
+ * @param Reverse State IDs
+ * @text 绑定状态 (逆练)
+ * @type number[]
+ * @desc 当标签生效且处于逆练阶段(Tier=2)时，赋予角色的状态ID列表。
+ * @default []
+ */
+
 var Imported = Imported || {};
 Imported.TagSystem = true;
 
@@ -330,6 +479,13 @@ TagSystem.Parameters = PluginManager.parameters('TagSystem');
 TagSystem.Params = {
     fontSizeReduction: Number(TagSystem.Parameters['FontSizeReduction'] || 4),
     tagFontName: TagSystem.Parameters['TagFontName'] || '微软雅黑',
+    
+    // --- 移植部分 Start ---
+    tagNameFontSize: Number(TagSystem.Parameters['TagNameFontSize'] || 24),
+    tagNameIconScale: Number(TagSystem.Parameters['TagNameIconScale'] || 1.0),
+    tagNameIconOffsetY: Number(TagSystem.Parameters['TagNameIconOffsetY'] || 0),
+    // --- 移植部分 End ---
+    
     bgHeightRatio: Number(TagSystem.Parameters['BgHeightRatio'] || 0.9),
     bgWidthScale: Number(TagSystem.Parameters['BgWidthScale'] || 1.2),
     bgBorderRadius: Number(TagSystem.Parameters['BgBorderRadius'] || 4),
@@ -342,7 +498,15 @@ TagSystem.Params = {
     bgStrokeColor: String(TagSystem.Parameters['BgStrokeColor'] || '#FFFFFF'),
     
     textBaselineOffset: Number(TagSystem.Parameters['TextBaselineOffset'] || 0),
-    bgBaselineOffset: Number(TagSystem.Parameters['BgBaselineOffset'] || 0)
+    bgBaselineOffset: Number(TagSystem.Parameters['BgBaselineOffset'] || 0),
+
+    // --- 剑标UI参数 ---
+    smShowClickZone: String(TagSystem.Parameters['Show Click Zone'] || 'false') === 'true',
+    smZoneWidth: Number(TagSystem.Parameters['Click Zone Width'] || 40),
+    smZoneHeight: Number(TagSystem.Parameters['Click Zone Height'] || 0),
+    smOffsetLeftX: Number(TagSystem.Parameters['Left Arrow Offset X'] || 0),
+    smOffsetRightX: Number(TagSystem.Parameters['Right Arrow Offset X'] || 0),
+    smOffsetY: Number(TagSystem.Parameters['Arrow Offset Y'] || 0)
 };
 
 var $dataTags = $dataTags || {};
@@ -435,7 +599,8 @@ var $dataTags = $dataTags || {};
             actors: TagSystem.parseSettings('Actor Tag Settings', 'Actor ID', 1),
             enemies: TagSystem.parseSettings('Enemy Tag Settings', 'Enemy ID', 1),
             weapons: TagSystem.parseSettings('Weapon Tag Settings', 'Weapon ID', 4),
-            armors: TagSystem.parseSettings('Armor Tag Settings', 'Armor ID', 4)
+            armors: TagSystem.parseSettings('Armor Tag Settings', 'Armor ID', 4),
+            swordMarks: TagSystem.parseSettings('Sword Mark Tag Settings', 'Sword Mark ID', 5)
         };
     };
 
@@ -483,7 +648,7 @@ var $dataTags = $dataTags || {};
     };
 
     //-----------------------------------------------------------------------------
-    // 核心绘制逻辑（修复：突破最小字号限制）
+    // 核心绘制逻辑
     //-----------------------------------------------------------------------------
     const _Window_Base_processNormalCharacter = Window_Base.prototype.processNormalCharacter;
     Window_Base.prototype.processNormalCharacter = function(textState) {
@@ -694,7 +859,7 @@ var $dataTags = $dataTags || {};
     };
 
     //-----------------------------------------------------------------------------
-    // 角色/敌人标签与修炼逻辑
+    // 角色/敌人标签与修炼逻辑 (剑标扩展)
     //-----------------------------------------------------------------------------
     
     var _Game_Actor_setup = Game_Actor.prototype.setup;
@@ -709,6 +874,7 @@ var $dataTags = $dataTags || {};
         this._tagPhase = 0; // 0 = 正练, 1 = 逆练
         this._tagBattleCount = 0;
         this._tagBattleLimit = this.generateTagBattleLimit();
+        this._smTagIndex = 0; // 剑标标签的当前索引
     };
 
     Game_Actor.prototype.generateTagBattleLimit = function() {
@@ -737,7 +903,50 @@ var $dataTags = $dataTags || {};
         }
     };
 
-    // [Fix] 修复武器/装备标签读取逻辑
+    // 获取剑标ID (逻辑参考 DrawIconAfterName + LimitBonusPatch)
+    Game_Actor.prototype.getSwordMarkId = function() {
+        var iconIndex = 0;
+        
+        // 1. 读取全局变量覆盖
+        var drawIconParams = PluginManager.parameters('DrawIconAfterName');
+        if (drawIconParams) {
+            var globalVarId = Number(drawIconParams['Icon Variable ID'] || 0);
+            if (globalVarId > 0 && $gameVariables.value(globalVarId) > 0) {
+                iconIndex = $gameVariables.value(globalVarId);
+            }
+        }
+        
+        // 2. 读取插件命令修改
+        if (iconIndex === 0 && this._overrideNameIcon !== undefined && this._overrideNameIcon > 0) {
+            iconIndex = this._overrideNameIcon;
+        }
+        
+        // 3. 读取数据库备注
+        if (iconIndex === 0 && this.actor().meta.NameIcon) {
+            iconIndex = Number(this.actor().meta.NameIcon);
+        }
+        
+        return iconIndex;
+    };
+
+    // 切换剑标当前标签
+    Game_Actor.prototype.cycleSwordMarkTag = function(direction) {
+        if (!this._smTagIndex) this._smTagIndex = 0;
+        var smId = this.getSwordMarkId();
+        if (smId > 0 && $dataTags.swordMarks && $dataTags.swordMarks[smId]) {
+            var list = $dataTags.swordMarks[smId];
+            if (list.length > 1) {
+                this._smTagIndex += direction;
+                if (this._smTagIndex >= list.length) this._smTagIndex = 0;
+                if (this._smTagIndex < 0) this._smTagIndex = list.length - 1;
+                this.refresh();
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // [Fix] 修复武器/装备标签读取逻辑 + 新增剑标读取
     Game_Actor.prototype.getTags = function() {
         if (!$dataTags) return [];
         
@@ -746,7 +955,6 @@ var $dataTags = $dataTags || {};
         
         // 1. 获取角色自身标签
         if ($dataTags.actors && $dataTags.actors[actorId]) {
-            // 使用 map 浅拷贝对象，防止污染源数据
             const actorTags = $dataTags.actors[actorId].map(function(tag) {
                 var newTag = JsonEx.makeDeepCopy(tag);
                 newTag.isEquip = false;
@@ -757,12 +965,8 @@ var $dataTags = $dataTags || {};
 
         // 2. 获取装备标签 (修复版)
         this.equips().forEach(function(equip) {
-            // 如果装备为空，跳过
             if (!equip) return;
-            
             var equipTags = [];
-            
-            // 使用 DataManager 正确判断类型
             if (DataManager.isWeapon(equip)) {
                 if ($dataTags.weapons && $dataTags.weapons[equip.id]) {
                     equipTags = $dataTags.weapons[equip.id];
@@ -772,16 +976,40 @@ var $dataTags = $dataTags || {};
                     equipTags = $dataTags.armors[equip.id];
                 }
             }
-            
             if (equipTags.length > 0) {
                 var taggedEquipTags = equipTags.map(function(tag) {
                     var newTag = JsonEx.makeDeepCopy(tag);
-                    newTag.isEquip = true; // 标记为装备提供的标签
+                    newTag.isEquip = true; 
                     return newTag;
                 });
                 tags = tags.concat(taggedEquipTags);
             }
         });
+
+        // 3. 获取剑标标签 (Sword Marks)
+        var smId = this.getSwordMarkId();
+        if (smId > 0 && $dataTags.swordMarks && $dataTags.swordMarks[smId]) {
+            var smList = $dataTags.swordMarks[smId];
+            if (smList.length > 0) {
+                // 确保索引合法
+                if (!this._smTagIndex) this._smTagIndex = 0;
+                if (this._smTagIndex >= smList.length) this._smTagIndex = 0;
+                
+                // 只获取当前选中的那一个标签
+                var smTag = JsonEx.makeDeepCopy(smList[this._smTagIndex]);
+                smTag.isSwordMark = true; // 标记为剑标
+                
+                // [Modified] 强制设置 isEquip=true。
+                // 原因：Window_StatusCustomExt 的排序逻辑是：非装备(0) -> 装备(1)。
+                // 若不设置，剑标会被视为非装备(0)排在装备(1)之前。
+                // 设置为true后，它与装备同属一组，再根据 Tier (5 > 4) 排序，从而排在装备之后。
+                smTag.isEquip = true; 
+                
+                smTag.smIndex = this._smTagIndex;
+                smTag.smTotal = smList.length;
+                tags.push(smTag);
+            }
+        }
 
         return tags;
     };
@@ -847,42 +1075,156 @@ var $dataTags = $dataTags || {};
     };
 
     // ============================================================================
-    // 修复：字体预加载逻辑 (Fix for Font Loading Issue)
+    // 修复：字体预加载逻辑
     // ============================================================================
-    // 在游戏启动时，强制创建一个临时的 Bitmap 并绘制一次该字体，
-    // 以强迫浏览器立即加载字体文件。这解决了首次打开菜单字体不显示的问题。
-    // ============================================================================
-
     TagSystem.preloadFont = function() {
         if (this._fontPreloaded) return;
         var fontName = TagSystem.Params.tagFontName;
         if (!fontName) return;
 
-        // 方法 1: 尝试使用现代浏览器 API (可选)
         if (window.document && window.document.fonts && window.document.fonts.load) {
             try {
                 window.document.fonts.load("20px " + fontName);
-            } catch (e) {
-                // Ignore
-            }
+            } catch (e) {}
         }
 
-        // 方法 2: 暴力绘制法 (最可靠)
-        // 创建一个极小的 Bitmap，设置字体并绘制文字，触发浏览器加载机制
         var tempBitmap = new Bitmap(100, 100);
         tempBitmap.fontFace = fontName;
         tempBitmap.drawText("Preload", 0, 0, 100, 30);
-        
-        // 标记已执行
         this._fontPreloaded = true;
-        // console.log("TagSystem: Font '" + fontName + "' preloading triggered.");
     };
 
-    // 挂载到 Scene_Boot (游戏启动场景)
     var _Scene_Boot_create = Scene_Boot.prototype.create;
     Scene_Boot.prototype.create = function() {
         _Scene_Boot_create.call(this);
         TagSystem.preloadFont();
+    };
+
+    // ============================================================================
+    // 剑标切换 UI 逻辑 (Instance Override / 实例暴力覆盖)
+    // ============================================================================
+    
+    var _Scene_Status_create = Scene_Status.prototype.create;
+    Scene_Status.prototype.create = function() {
+        // 1. 执行原生逻辑
+        _Scene_Status_create.call(this);
+        
+        // 2. 延迟注入，直接操作实例
+        var self = this;
+        setTimeout(function() {
+            var win = self._customExtWindow;
+            if (win) {
+                // 保存旧方法
+                var originalDrawTagContent = win.drawTagContent;
+                
+                // --- 暴力覆盖实例方法 ---
+                win.drawTagContent = function(rect, tag) {
+                    
+                    // 1. 调用原方法绘制内容
+                    if (originalDrawTagContent) {
+                        originalDrawTagContent.call(this, rect, tag);
+                    }
+                    
+                    // 2. 强制绘制剑标箭头
+                    if (tag && tag.isSwordMark && tag.smTotal > 1) {
+                        // 强制重置样式
+                        this.contents.fontSize = 24; 
+                        this.contents.fontFace = this.standardFontFace();
+                        this.changeTextColor(this.systemColor());
+                        this.contents.paintOpacity = 255;
+                        this.contents.outlineWidth = 4;
+                        this.contents.outlineColor = 'rgba(0, 0, 0, 0.5)';
+                        
+                        // 读取参数
+                        var zoneW = TagSystem.Params.smZoneWidth;
+                        var zoneH = TagSystem.Params.smZoneHeight > 0 ? TagSystem.Params.smZoneHeight : rect.height;
+                        var offLeftX = TagSystem.Params.smOffsetLeftX;
+                        var offRightX = TagSystem.Params.smOffsetRightX;
+                        var offY = TagSystem.Params.smOffsetY;
+                        
+                        // 计算坐标 (独立偏移)
+                        // 垂直居中修正 (如果指定了高度)
+                        var baseY = rect.y + (rect.height - zoneH) / 2 + offY;
+                        
+                        // 左箭头：基于 rect.x + 左偏移
+                        var leftX = rect.x + offLeftX;
+                        // 右箭头：基于 rect.x + rect.width - 宽度 - 右偏移
+                        var rightX = rect.x + rect.width - zoneW - offRightX;
+
+                        // 绘制调试方框 (如果启用)
+                        if (TagSystem.Params.smShowClickZone) {
+                            this.contents.fillRect(leftX, baseY, zoneW, zoneH, 'rgba(255, 0, 0, 0.5)'); 
+                            this.contents.fillRect(rightX, baseY, zoneW, zoneH, 'rgba(255, 0, 0, 0.5)');
+                        }
+                        
+                        // [Fix 3.76] 使用底层方法绘制，强制居中 'center'
+                        this.contents.drawText("<", leftX, baseY, zoneW, zoneH, 'center');
+                        this.contents.drawText(">", rightX, baseY, zoneW, zoneH, 'center');
+                        
+                        // 记录点击热区
+                        this._swordMarkClickZones = this._swordMarkClickZones || [];
+                        this._swordMarkClickZones.push({
+                            rect: rect,
+                            leftZone: { x: leftX, y: baseY, width: zoneW, height: zoneH },
+                            rightZone: { x: rightX, y: baseY, width: zoneW, height: zoneH }
+                        });
+                    }
+                };
+                
+                // 覆盖 refresh 以清空点击区域
+                var originalRefresh = win.refresh;
+                win.refresh = function() {
+                    this._swordMarkClickZones = [];
+                    if (originalRefresh) originalRefresh.call(this);
+                };
+
+                // 覆盖 update 以检测点击
+                var originalUpdate = win.update;
+                win.update = function() {
+                    if (originalUpdate) originalUpdate.call(this);
+                    
+                    if (this.visible && this._swordMarkClickZones && this._swordMarkClickZones.length > 0) {
+                        if (TouchInput.isTriggered()) {
+                            // 修正：canvasToLocalX/Y 获取的是相对于窗口左上角(包含边框padding)的坐标
+                            // 而绘制内容(contents)是基于padding内部的
+                            // 因此判定点击时，必须减去 standardPadding()
+                            var pad = this.standardPadding ? this.standardPadding() : 18;
+                            var x = this.canvasToLocalX(TouchInput.x) - pad;
+                            var y = this.canvasToLocalY(TouchInput.y) - pad;
+                            
+                            for (var i = 0; i < this._swordMarkClickZones.length; i++) {
+                                var zone = this._swordMarkClickZones[i];
+                                var actor = this._actor;
+                                
+                                var isLeft = (x >= zone.leftZone.x && x <= zone.leftZone.x + zone.leftZone.width &&
+                                              y >= zone.leftZone.y && y <= zone.leftZone.y + zone.leftZone.height);
+                                              
+                                var isRight = (x >= zone.rightZone.x && x <= zone.rightZone.x + zone.rightZone.width &&
+                                               y >= zone.rightZone.y && y <= zone.rightZone.y + zone.rightZone.height);
+
+                                if (isLeft && actor) {
+                                    SoundManager.playCursor();
+                                    actor.cycleSwordMarkTag(-1);
+                                    this.refresh();
+                                    return;
+                                } else if (isRight && actor) {
+                                    SoundManager.playCursor();
+                                    actor.cycleSwordMarkTag(1);
+                                    this.refresh();
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                };
+
+                // 强制刷新一次以显示箭头
+                win.refresh(); 
+                
+            } else {
+                console.warn("TagSystem: Window_StatusCustomExt instance not found!");
+            }
+        }, 10);
     };
 
 })();

@@ -5,11 +5,11 @@
 // License: BSD
 //=============================================================================
  /*:
- * @plugindesc Ê¹RPG Maker MVÄÜ¹»×Ô¶¯»»ĞĞ¡£
- * @author Ğ¡ÓÅ¡¾66RPG£ºrpg-sheep¡¿¡¾°Ù¶ÈÌù°É£ºÓÅ¼ÓĞÇ°®ÍÃ×Ó¡¿
+ * @plugindesc ä½¿RPG Maker MVèƒ½å¤Ÿè‡ªåŠ¨æ¢è¡Œã€‚
+ * @author å°ä¼˜ã€66RPGï¼šrpg-sheepã€‘ã€ç™¾åº¦è´´å§ï¼šä¼˜åŠ æ˜Ÿçˆ±å…”å­ã€‘
  *
  * @help 
- * ÊµÏÖ×Ô¶¯»»ĞĞĞ¡¹¦ÄÜ¡£
+ * å®ç°è‡ªåŠ¨æ¢è¡Œå°åŠŸèƒ½ã€‚
  */
 Window_Selectable.prototype.processNormalCharacter = Window_Base.prototype.processNormalCharacter;
 Window_Base.prototype.processNormalCharacter = function(textState) {
