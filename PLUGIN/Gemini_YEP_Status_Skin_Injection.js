@@ -1,5 +1,5 @@
 /*:
- * @plugindesc (v5.1 品质分级版) 修复文字遮挡，支持Tier 1-4独立皮肤与背景。
+ * @plugindesc (v5.3 剑标图集版) 修复文字遮挡，支持Tier 1-5独立皮肤与背景。
  * @author Gemini
  *
  * @param --- Skin Files (Border) ---
@@ -47,6 +47,15 @@
  * @type file
  * @desc 原装备位，现对应 Tier 4 品质。
  *
+ * @param Skin: Tier 5
+ * @parent --- Skin Files (Border) ---
+ * @text Tier 5 边框皮肤
+ * @default Window
+ * @require 1
+ * @dir img/system/
+ * @type file
+ * @desc 对应 Tier 5 品质 (如剑标)。
+ *
  * @param --- Background Images (img/pictures/) ---
  * @default
  *
@@ -87,8 +96,23 @@
  * @type file
  * @desc 原装备位，现对应 Tier 4 品质。
  *
+ * @param Bg: Tier 5
+ * @parent --- Background Images (img/pictures/) ---
+ * @text Tier 5 背景图(图片集)
+ * @require 1
+ * @dir img/pictures/
+ * @type file
+ * @desc 剑标专属：请使用16列的SpriteSheet大图。根据角色剑标ID自动切片。
+ *
  * @param --- Settings ---
  * @default
+ *
+ * @param Tier 5 Cell Height
+ * @parent --- Settings ---
+ * @text Tier 5 切片高度
+ * @type number
+ * @default 0
+ * @desc 0=自动(设为与单格宽度相同/正方形)。否则填写具体像素高度(如40)。
  *
  * @param Opacity
  * @parent --- Settings ---
@@ -162,6 +186,23 @@
  *
  * @help
  * ============================================================================
+ * 更新说明 v5.3 (剑标图片集切片)
+ * ============================================================================
+ * 1. [Tier 5 图片集支持]：
+ * - 现在 Tier 5 的背景图被视为一张包含多个图标背景的大图（Sprite Sheet）。
+ * - 布局规则：横向 16 列。
+ * - 索引规则：第1格(Index 0)留空，第2格(Index 1)对应剑标ID 001，以此类推。
+ * - 自动换行：ID 16 将会自动读取第二行的第1格。
+ *
+ * 2. [新增参数]：
+ * - Tier 5 Cell Height: 用于指定切片的高度。如果您的背景是长方形的，
+ * 请务必设置此数值（例如图片是 1600x200，16列，则单格宽100，若高是50，则填50）。
+ * * ============================================================================
+ * 更新说明 v5.2 (Tier 5 支持)
+ * ============================================================================
+ * 1. [Tier 5 支持]：
+ * 新增了 Tier 5 (通常用于剑标) 的边框皮肤和背景图片设置。
+ *
  * 更新说明 v5.1 (Tier 4 支持)
  * ============================================================================
  * 1. [逻辑变更]：
@@ -185,7 +226,8 @@
         'tier1':   String(parameters['Skin: Tier 1'] || 'Window'),
         'tier2':   String(parameters['Skin: Tier 2'] || 'Window'),
         'tier3':   String(parameters['Skin: Tier 3'] || 'Window'),
-        'tier4':   String(parameters['Skin: Tier 4'] || 'Window') // Changed from equip
+        'tier4':   String(parameters['Skin: Tier 4'] || 'Window'),
+        'tier5':   String(parameters['Skin: Tier 5'] || 'Window') 
     };
 
     // 2. 读取背景图片名 (pictures)
@@ -194,9 +236,11 @@
         'tier1':   String(parameters['Bg: Tier 1'] || ''),
         'tier2':   String(parameters['Bg: Tier 2'] || ''),
         'tier3':   String(parameters['Bg: Tier 3'] || ''),
-        'tier4':   String(parameters['Bg: Tier 4'] || '') // Changed from equip
+        'tier4':   String(parameters['Bg: Tier 4'] || ''),
+        'tier5':   String(parameters['Bg: Tier 5'] || '') 
     };
 
+    var tier5CellHeight = Number(parameters['Tier 5 Cell Height'] || 0);
     var bgOpacity = Number(parameters['Opacity'] || 160);
     var layoutMode = String(parameters['Skin Layout Mode'] || 'Quadrant');
     var bgFallbackType = String(parameters['Background Type'] || 'Stretch');
@@ -231,12 +275,13 @@
     function getTagKey(tag) {
         if (!tag) return 'default';
         
-        // 纯粹根据 Tier 判断，不再检测 isWeapon/isArmor
+        // 纯粹根据 Tier 判断
         if (tag.tier !== undefined) {
             if (tag.tier === 1) return 'tier1';
             if (tag.tier === 2) return 'tier2';
             if (tag.tier === 3) return 'tier3';
             if (tag.tier === 4) return 'tier4';
+            if (tag.tier === 5) return 'tier5'; 
         }
         
         return 'default';
@@ -255,7 +300,8 @@
             // --- 资源预加载 ---
             win._skins = {};
             win._bgImgs = {};
-            ['default', 'tier1', 'tier2', 'tier3', 'tier4'].forEach(function(key) {
+            
+            ['default', 'tier1', 'tier2', 'tier3', 'tier4', 'tier5'].forEach(function(key) {
                 // 加载 img/system/ 下的皮肤
                 win._skins[key] = ImageManager.loadSystem(skinNames[key]);
                 // 加载 img/pictures/ 下的背景图 (如果设置了)
@@ -301,7 +347,7 @@
                 var coords = getSkinCoords(skin);
                 if (coords) {
                     // 1. 画背景 (优先独立图，其次皮肤纹理)
-                    this.drawGeminiBackground(dx, dy, dw, dh, skin, coords, bgImg);
+                    this.drawGeminiBackground(dx, dy, dw, dh, skin, coords, bgImg, key);
                     // 2. 画边框
                     this.drawGeminiBorder(dx, dy, dw, dh, skin, coords);
                 }
@@ -322,7 +368,7 @@
 
                 // 1. 底层背景
                 if (skin && coords) {
-                    this.drawGeminiBackground(x, y, w, h, skin, coords, bgImg);
+                    this.drawGeminiBackground(x, y, w, h, skin, coords, bgImg, key);
                 }
                 // 2. 中层 Tier 颜色
                 if (!overrideTier && _orig_drawTierBackground) {
@@ -366,7 +412,7 @@
             // ================================================================
             // 核心辅助：绘制背景
             // ================================================================
-            win.drawGeminiBackground = function(dx, dy, dw, dh, skin, coords, bgImg) {
+            win.drawGeminiBackground = function(dx, dy, dw, dh, skin, coords, bgImg, key) {
                 var contents = this.contents;
                 contents.context.save();
                 var pad = 2; // 内缩一点
@@ -376,25 +422,61 @@
                 if (inW > 0 && inH > 0) {
                     contents.paintOpacity = bgOpacity;
                     
-                    // 优先判断是否有独立背景图
-                    if (bgImg) {
-                        // 有独立图 -> 拉伸铺满
-                        contents.blt(bgImg, 0, 0, bgImg.width, bgImg.height, inX, inY, inW, inH);
-                    } else {
-                        // 没有独立图 -> 回退到使用 Window 皮肤的纹理
-                        if (bgFallbackType === 'Stretch') {
-                            contents.blt(skin, coords.bx, coords.by, coords.bw, coords.bh, inX, inY, inW, inH);
+                    var drawn = false;
+
+                    // --- Tier 5 特殊逻辑: 图片集切片 ---
+                    if (key === 'tier5' && bgImg) {
+                        // 尝试获取剑标ID
+                        // 注意：这里我们假设 TagSystem.js 已经正常工作且该 Window 绑定了 actor
+                        var actor = this._actor;
+                        var smId = 0;
+                        if (actor && typeof actor.getSwordMarkId === 'function') {
+                            smId = actor.getSwordMarkId();
+                        }
+
+                        // 如果 ID 有效 (>0)，则进行切片绘制
+                        if (smId > 0) {
+                            var cols = 16;
+                            var cellW = Math.floor(bgImg.width / cols);
+                            var cellH = (tier5CellHeight > 0) ? tier5CellHeight : cellW;
+                            
+                            // 映射规则：ID 1 = Index 1 (第2格)
+                            var index = smId;
+                            
+                            var sx = (index % cols) * cellW;
+                            var sy = Math.floor(index / cols) * cellH;
+
+                            // 边界检查，防止超出图片
+                            if (sx < bgImg.width && sy < bgImg.height) {
+                                contents.blt(bgImg, sx, sy, cellW, cellH, inX, inY, inW, inH);
+                                drawn = true;
+                            }
+                        }
+                    }
+
+                    // --- 常规逻辑 ---
+                    if (!drawn) {
+                        // 优先判断是否有独立背景图
+                        if (bgImg) {
+                            // 有独立图 -> 拉伸铺满
+                            contents.blt(bgImg, 0, 0, bgImg.width, bgImg.height, inX, inY, inW, inH);
                         } else {
-                            // Tile mode
-                            for (var yy = 0; yy < inH; yy += coords.bh) {
-                                for (var xx = 0; xx < inW; xx += coords.bw) {
-                                    var drawW = Math.min(coords.bw, inW - xx);
-                                    var drawH = Math.min(coords.bh, inH - yy);
-                                    contents.blt(skin, coords.bx, coords.by, drawW, drawH, inX + xx, inY + yy, drawW, drawH);
+                            // 没有独立图 -> 回退到使用 Window 皮肤的纹理
+                            if (bgFallbackType === 'Stretch') {
+                                contents.blt(skin, coords.bx, coords.by, coords.bw, coords.bh, inX, inY, inW, inH);
+                            } else {
+                                // Tile mode
+                                for (var yy = 0; yy < inH; yy += coords.bh) {
+                                    for (var xx = 0; xx < inW; xx += coords.bw) {
+                                        var drawW = Math.min(coords.bw, inW - xx);
+                                        var drawH = Math.min(coords.bh, inH - yy);
+                                        contents.blt(skin, coords.bx, coords.by, drawW, drawH, inX + xx, inY + yy, drawW, drawH);
+                                    }
                                 }
                             }
                         }
                     }
+                    
                     contents.paintOpacity = 255;
                 }
                 contents.context.restore();

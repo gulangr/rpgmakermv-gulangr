@@ -6,7 +6,7 @@
  * @plugindesc <MapDisplayNameCore> for RPG Maker MV version 1.6.1.
  * @author Fallen Angel Olivia
  *
- * @help
+烦烦烦 * @help
  * This is a RPG Maker MV plugin that lets you control Map Display Names.
  * They can now use text codes, have unique gradient colors, and can have
  * custom defined fade times and duration.
@@ -42,7 +42,7 @@
  * Red, Green, Blue, Alpha.
  *
  * -----------------
- * Custom Dim Colors
+ * Custom Dim Colors发
  * -----------------
  *
  * You can use custom Dim Colors for special maps. Put these notetags into

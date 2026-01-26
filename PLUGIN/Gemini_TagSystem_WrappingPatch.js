@@ -1,5 +1,5 @@
 /*:
- * @plugindesc (v1.8) TagSystem 终极补丁 - 修复图标[T:x]不显示的问题
+ * @plugindesc (v2.1 修复版) TagSystem 终极补丁 - 修复标签名图标独立偏移
  * @author Gemini
  *
  * @param Enable Debug Log
@@ -11,17 +11,11 @@
  *
  * @help
  * ============================================================================
- * 功能升级 (v1.8)
+ * 功能升级 (v2.1)
  * ============================================================================
- * 修复了与 TagSystem_IconsPatch.js 的冲突。
- * 现在可以正确解析和显示 [T:x] 格式的图标了。
- * * 1. 【解锁 16 进制颜色代码】：
- * - 【暴击】[FFFFFF][3]     (背景白色，文字3号色)
- * - 【火焰】[#FF0000][#FFFF00] (背景红色，文字黄色)
- *
- * 2. 【图标支持】：
- * - 支持文本中插入图标：获得[T:25]物品
- * - 支持标签内插入图标：【[T:10]力量】[0][0]
+ * * 修复：
+ * - 标签名中的图标现在完全独立，不再受 TagSystem_IconsPatch 中的“图标基线偏移”影响。
+ * - 只有 TagSystem 主插件中的 "标签名图标Y轴偏移" 能控制标签名图标的位置。
  *
  * ============================================================================
  */
@@ -78,10 +72,11 @@
                 res.push({ type: 'text', content: str.substring(cur, m.index) });
             }
             // 添加图标 Token
+            // 【修复】不再强制默认 1.0，而是设为 undefined，以便让底层 (IconsPatch) 决定默认值
             res.push({
                 type: 'icon',
                 iconIndex: Number(m[1]),
-                iconScale: m[2] ? Number(m[2]) : 1.0
+                iconScale: m[2] ? Number(m[2]) : undefined 
             });
             cur = reg.lastIndex;
         }
@@ -241,7 +236,7 @@
     // ------------------------------------------------------------------------
     // 4. 辅助：宽度计算 (v1.6 逻辑 + IconParams 保护)
     // ------------------------------------------------------------------------
-    function calcTokenWidth(win, token) {
+    function calcTokenWidth(win, token, customIconScale) {
         if (token.type === 'text') return win.textWidth(token.content);
         
         // 确保 iconParams 存在，防止崩溃
@@ -297,9 +292,15 @@
         } else if (token.type === 'icon') {
             var margin = TagSystem.Params.bgBlockMargin;
             var lh = win.lineHeight();
-            var maxScale = iconParams.maxIconScale;
-            var ratio = Math.min((lh * maxScale) / iconParams.iconHeight, maxScale);
-            if (token.iconScale && token.iconScale > 1) ratio = Math.min(ratio * token.iconScale, maxScale);
+            
+            // 允许外部传入自定义缩放覆盖 (比如标签名强制使用 TagNameIconScale)
+            // 如果 customIconScale 为 undefined (如 Note/Effect)，则尝试使用 token 自身的缩放
+            // 如果 token 自身缩放也为 undefined (未指定 :scale)，则使用 IconParams.maxIconScale (全局默认)
+            var effectiveScale = (token.iconScale !== undefined) ? token.iconScale : iconParams.maxIconScale;
+            var targetScale = (customIconScale !== undefined) ? customIconScale : effectiveScale;
+            
+            var ratio = (lh * targetScale) / iconParams.iconHeight;
+            
             return iconParams.iconWidth * ratio + margin;
         }
         return 0;
@@ -319,7 +320,7 @@
              var proto = win.constructor.prototype;
 
              if (!proto._isGeminiWrappedV17) {
-                 console.log("Gemini_TagSystem_WrappingPatch v1.8: 图标解析修复版已加载。");
+                 console.log("Gemini_TagSystem_WrappingPatch v2.1: 图标解析修复版已加载。");
                  
                  // 预计算布局
                  proto.layoutTextAndLimit = function(text, maxWidth, maxLines) {
@@ -411,11 +412,11 @@
                      }
                  };
 
-                 // 覆盖 drawTagContent (保持原样)
+                 // 覆盖 drawTagContent (完全重写以支持标签名图标)
                  proto.drawTagContent = function(rect, tag) {
                     if (!tag) return;
+                    
                     var oldSize = this.contents.fontSize;
-                    this.contents.fontSize = paramFontSize;
                     var lh = paramLineHeight;
                     var px = rect.x + 6;
                     var py = rect.y + 6;
@@ -423,15 +424,87 @@
                     var currentY = py + paramLabelNameOffsetY;
                     var phase = (this._actor && typeof this._actor.getTagPhase === 'function') ? this._actor.getTagPhase() : 0;
 
+                    // --- 1. 绘制标签名 (使用自定义字号 + 图标支持) ---
                     this.changeTextColor(this.normalColor());
-                    var nameW = this.textWidth(tag.name);
-                    var nameX = px + (pw - nameW) / 2; 
-                    this.drawText(tag.name, nameX, currentY, 2000, 'left');
-                    currentY += lh + paramNamePadding;
+                    var nameFontSize = TagSystem.Params.tagNameFontSize || 24;
+                    this.contents.fontSize = nameFontSize;
+                    
+                    // 解析名字中的图标
+                    var nameTokens = parseIconsInText(tag.name);
+                    
+                    // 计算总宽度 (使用自定义图标缩放)
+                    var nameTotalW = 0;
+                    var nameItems = [];
+                    // 使用自定义图标缩放
+                    var nameIconScale = TagSystem.Params.tagNameIconScale || 1.0;
+                    
+                    for (var i = 0; i < nameTokens.length; i++) {
+                        var t = nameTokens[i];
+                        if (t.type === 'text') {
+                            var w = this.textWidth(t.content);
+                            nameItems.push({ type: 'text', token: t, width: w });
+                            nameTotalW += w;
+                        } else if (t.type === 'icon') {
+                            // 强制使用 TagNameIconScale 计算宽度
+                            var w = calcTokenWidth(this, t, nameIconScale);
+                            nameItems.push({ type: 'icon', token: t, width: w });
+                            nameTotalW += w;
+                        }
+                    }
 
+                    // 居中绘制
+                    var currentNameX = px + (pw - nameTotalW) / 2;
+                    // 名字垂直居中：需要基于行高计算
+                    // 使用 nameFontSize 作为名字的行高
+                    var nameLineHeight = nameFontSize + 4; 
+                    
+                    for (var i = 0; i < nameItems.length; i++) {
+                        var item = nameItems[i];
+                        if (item.type === 'text') {
+                            this.drawText(item.token.content, currentNameX, currentY, item.width, 'left');
+                            currentNameX += item.width;
+                        } else if (item.type === 'icon') {
+                            // 手动绘制图标，应用自定义缩放
+                            var token = item.token;
+                            // 临时覆盖 iconScale
+                            var originalScale = token.iconScale;
+                            token.iconScale = nameIconScale;
+                            
+                            // 构造 textState 欺骗 drawIconBlock
+                            
+                            if (this.drawIconBlock) {
+                                // 构造一个模拟环境
+                                var tempState = { x: currentNameX, y: currentY, height: nameLineHeight };
+                                
+                                var stdLh = this.lineHeight(); // 36
+                                var offsetY = (stdLh - nameLineHeight) / 2; // 调整偏移量
+                                tempState.y -= offsetY; // 反向补偿
+                                
+                                // 【新增】应用标签名图标的自定义 Y 轴偏移
+                                tempState.y += (TagSystem.Params.tagNameIconOffsetY || 0);
+
+                                // 【核心修复】：反向扣除全局 iconBaselineOffset
+                                // 因为 drawIconBlock 内部会加上这个值，这里先减去，实现“不跟随”的效果
+                                if (TagSystem.IconParams && TagSystem.IconParams.iconBaselineOffset) {
+                                    tempState.y -= TagSystem.IconParams.iconBaselineOffset;
+                                }
+                                
+                                this.drawIconBlock(token, tempState);
+                                token.iconScale = originalScale; // 恢复
+                            }
+                            currentNameX += item.width;
+                        }
+                    }
+                    
+                    currentY += lh + paramNamePadding; // 使用标准间隔
+                    this.contents.fontSize = oldSize; // 恢复字号
+
+                    // --- 2. 分割线 ---
                     this.contents.fillRect(px, currentY, pw, 1, finalLineStyle);
                     currentY += (1 + paramLinePadding); 
 
+                    // --- 3. 介绍 ---
+                    this.contents.fontSize = paramFontSize;
                     this.changeTextColor(this.textColor(paramLabelColorIndex));
                     this.drawText("✦介绍", px, currentY, 2000, 'left');
                     currentY += lh;
@@ -443,6 +516,7 @@
 
                     currentY += lh * 0.5;
 
+                    // --- 4. 效果 ---
                     if (tag.tier === 2) {
                         this.changeTextColor(this.textColor(paramLabelColorIndex));
                         this.drawText("✦效果", px, currentY, 2000, 'left');
